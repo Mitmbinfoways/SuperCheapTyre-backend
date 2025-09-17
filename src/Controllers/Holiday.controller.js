@@ -60,17 +60,54 @@ const createHoliday = async (req, res) => {
 
 const getHolidays = async (req, res) => {
   try {
-    const { from, to } = req.query;
+    const { from, to, search, page, limit } = req.query;
     const filter = {};
+
     if (from || to) {
       filter.date = {};
       if (from) filter.date.$gte = new Date(from);
       if (to) filter.date.$lte = new Date(to);
     }
-    const items = await Holiday.find(filter).sort({ date: 1 });
+
+    if (search) {
+      filter.reason = { $regex: search, $options: "i" };
+    }
+
+    let items;
+    let pagination = null;
+
+    if (page && limit) {
+      const pageNumber = parseInt(page, 10);
+      const limitNumber = parseInt(limit, 10);
+      const skip = (pageNumber - 1) * limitNumber;
+
+      items = await Holiday.find(filter)
+        .sort({ date: 1 })
+        .skip(skip)
+        .limit(limitNumber);
+
+      const totalItems = await Holiday.countDocuments(filter);
+      const totalPages = Math.ceil(totalItems / limitNumber);
+
+      pagination = {
+        totalItems,
+        totalPages,
+        currentPage: pageNumber,
+        pageSize: limitNumber,
+      };
+    } else {
+      items = await Holiday.find(filter).sort({ date: 1 });
+    }
+
     return res
       .status(200)
-      .json(new ApiResponse(200, items, "Holidays fetched successfully"));
+      .json(
+        new ApiResponse(
+          200,
+          { items, pagination },
+          "Holidays fetched successfully"
+        )
+      );
   } catch (error) {
     console.log(error);
     return res.status(500).json(new ApiError(500, "Internal Server Error"));
