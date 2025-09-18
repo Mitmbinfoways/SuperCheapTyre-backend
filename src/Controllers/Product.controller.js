@@ -23,6 +23,8 @@ const getAllProducts = async (req, res) => {
       fitments,
       staggeredOptions,
       diameter,
+      page,
+      limit,
     } = req.query;
 
     const filter = {};
@@ -73,11 +75,41 @@ const getAllProducts = async (req, res) => {
         $options: "i",
       };
 
-    const products = await Product.find(filter).sort({ createdAt: -1 });
+    let items;
+    let pagination = null;
+
+    if (page && limit) {
+      const pageNumber = parseInt(page, 10);
+      const limitNumber = parseInt(limit, 10);
+      const skip = (pageNumber - 1) * limitNumber;
+
+      items = await Product.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNumber);
+
+      const totalItems = await Product.countDocuments(filter);
+      const totalPages = Math.ceil(totalItems / limitNumber);
+
+      pagination = {
+        totalItems,
+        totalPages,
+        currentPage: pageNumber,
+        pageSize: limitNumber,
+      };
+    } else {
+      items = await Product.find(filter).sort({ createdAt: -1 });
+    }
 
     return res
       .status(200)
-      .json(new ApiResponse(200, products, "Products fetched successfully"));
+      .json(
+        new ApiResponse(
+          200,
+          { items, pagination },
+          "Products fetched successfully"
+        )
+      );
   } catch (error) {
     console.error(error);
     return res.status(500).json(new ApiError(500, "Internal Server Error"));
@@ -181,6 +213,27 @@ const CreateProduct = async (req, res) => {
       .json(new ApiResponse(201, product, "Product created successfully"));
   } catch (error) {
     console.error("CreateProduct Error:", error);
+    return res.status(500).json(new ApiError(500, "Internal Server Error"));
+  }
+};
+
+const getProductById = async (req, res) => {
+  try {
+    const id = req.params?.id;
+    if (!id) {
+      return res.status(400).json(new ApiError(400, "Product id is required"));
+    }
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json(new ApiError(404, "Product not found"));
+    }
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, product, "Product fetched successfully"));
+  } catch (error) {
+    console.error("getProductById Error:", error);
     return res.status(500).json(new ApiError(500, "Internal Server Error"));
   }
 };
@@ -352,6 +405,7 @@ module.exports = {
   getAllProducts,
   CreateProduct,
   DeleteProduct,
+  getProductById,
   BestSellerProduct,
   DashboardCount,
   UpdateProduct,

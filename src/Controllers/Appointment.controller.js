@@ -6,17 +6,56 @@ const TimeSlot = require("../Models/TimeSlot.model");
 // GET /appointments
 const getAllAppointments = async (req, res) => {
   try {
-    const { date, status } = req.query;
+    const { date, status, search, page, limit } = req.query;
+
+    // Build filter dynamically
     const filter = {};
     if (date) filter.date = date;
     if (status) filter.status = status;
+    if (search) {
+      filter.$or = [
+        { firstname: { $regex: search, $options: "i" } },
+        { lastname: { $regex: search, $options: "i" } },
+      ];
+    }
 
-    const items = await Appointment.find(filter).sort({ createdAt: -1 });
+    let items;
+    let pagination = null;
+
+    if (page && limit) {
+      const pageNumber = parseInt(page, 10);
+      const limitNumber = parseInt(limit, 10);
+      const skip = (pageNumber - 1) * limitNumber;
+
+      items = await Appointment.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNumber);
+
+      const totalItems = await Appointment.countDocuments(filter);
+      const totalPages = Math.ceil(totalItems / limitNumber);
+
+      pagination = {
+        totalItems,
+        totalPages,
+        currentPage: pageNumber,
+        pageSize: limitNumber,
+      };
+    } else {
+      items = await Appointment.find(filter).sort({ createdAt: -1 });
+    }
+
     return res
       .status(200)
-      .json(new ApiResponse(200, items, "Appointments fetched successfully"));
+      .json(
+        new ApiResponse(
+          200,
+          { items, pagination },
+          "Appointments fetched successfully"
+        )
+      );
   } catch (error) {
-    console.log(error);
+    console.error(error);
     return res.status(500).json(new ApiError(500, "Internal Server Error"));
   }
 };

@@ -5,25 +5,41 @@ const ContactModel = require("../Models/Contact.model");
 
 const getAllContacts = async (req, res) => {
   try {
-    let { page = 1, limit = 10 } = req.body;
+    let { search, page, limit } = req.query;
 
-    page = parseInt(page);
-    limit = parseInt(limit);
+    page = parseInt(page) || 1;
+    limit = parseInt(limit) || 10;
 
-    const totalContacts = await ContactModel.countDocuments();
-    const contacts = await ContactModel.find()
+    const filter = {};
+
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { message: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const totalContacts = await ContactModel.countDocuments(filter);
+
+    const contacts = await ContactModel.find(filter)
+      .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
-      .limit(limit)
-      .sort({ createdAt: -1 });
+      .limit(limit);
+
+    const totalPages = Math.ceil(totalContacts / limit);
 
     return res.status(200).json(
       new ApiResponse(
         200,
         {
-          total: totalContacts,
-          page,
-          limit,
-          contacts,
+          items: contacts,
+          pagination: {
+            totalItems: totalContacts,
+            totalPages,
+            currentPage: page,
+            pageSize: limit,
+          },
         },
         "Contacts fetched successfully"
       )

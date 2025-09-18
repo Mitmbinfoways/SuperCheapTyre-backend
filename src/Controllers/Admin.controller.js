@@ -14,7 +14,6 @@ const generateOTP = () => {
 
 const RegiesterAdmin = async (req, res) => {
   try {
-    console.log(req.body);
     const { name, password, phone, email } = req.body;
     const avatar = req.file ? req.file.filename : req.body?.avatar;
 

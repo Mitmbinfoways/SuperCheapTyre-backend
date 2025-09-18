@@ -9,6 +9,7 @@ const {
   BestSellerProduct,
   DashboardCount,
   UpdateProduct,
+  getProductById,
 } = require("../Controllers/Product.controller");
 
 // Multer setup for product images
@@ -26,6 +27,7 @@ const productStorage = multer.diskStorage({
 const uploadProductImages = multer({ storage: productStorage });
 
 ProductRoute.get("/", getAllProducts);
+ProductRoute.get("/:id", getProductById);
 ProductRoute.post("/", uploadProductImages.array("images", 5), CreateProduct);
 ProductRoute.patch("/:id", uploadProductImages.array("images", 5), UpdateProduct);
 ProductRoute.delete("/:id", DeleteProduct);

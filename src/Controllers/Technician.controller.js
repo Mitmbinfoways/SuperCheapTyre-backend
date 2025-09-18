@@ -85,16 +85,56 @@ const createTechnician = async (req, res) => {
   }
 };
 
-// Get all technicians
 const getAllTechnician = async (req, res) => {
   try {
-    const technicians = await TechnicianModel.find();
-    res
-      .status(200)
-      .json(
-        new ApiResponse(200, technicians, "Technicians fetched successfully")
-      );
+    const { search, page, limit } = req.query;
+
+    const filter = {};
+
+    if (search) {
+      filter.$or = [
+        { firstName: { $regex: search, $options: "i" } },
+        { lastName: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    let items;
+    let pagination = null;
+
+    if (page && limit) {
+      const pageNumber = parseInt(page, 10);
+      const limitNumber = parseInt(limit, 10);
+      const skip = (pageNumber - 1) * limitNumber;
+
+      items = await TechnicianModel.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNumber);
+
+      const totalItems = await TechnicianModel.countDocuments(filter);
+      const totalPages = Math.ceil(totalItems / limitNumber);
+
+      pagination = {
+        totalItems,
+        totalPages,
+        currentPage: pageNumber,
+        pageSize: limitNumber,
+      };
+    } else {
+      items = await TechnicianModel.find(filter).sort({ createdAt: -1 });
+    }
+
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        { items, pagination },
+        "Technicians fetched successfully"
+      )
+    );
   } catch (error) {
+    console.error(error);
     res.status(500).json(new ApiError(500, error.message || "Server error"));
   }
 };
