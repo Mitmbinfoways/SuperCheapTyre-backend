@@ -3,10 +3,9 @@ const ApiError = require("../Utils/ApiError");
 const TechnicianModel = require("../Models/Technician.model");
 const ApiResponse = require("../Utils/ApiResponse");
 
-// Create or Update a technician
 const createTechnician = async (req, res) => {
   try {
-    const { id, firstName, lastName, email, phone } = req.body; 
+    const { firstName, lastName, email, phone } = req.body;
 
     if (!firstName || !lastName || !email || !phone) {
       return res
@@ -16,46 +15,6 @@ const createTechnician = async (req, res) => {
             400,
             null,
             "firstName, lastName, email, and phone are required"
-          )
-        );
-    }
-
-    if (id) {
-      if (!mongoose.isValidObjectId(id)) {
-        return res
-          .status(400)
-          .json(new ApiError(400, null, "Invalid ID format"));
-      }
-
-      const technician = await TechnicianModel.findById(id);
-      if (!technician) {
-        return res
-          .status(404)
-          .json(new ApiError(404, null, "Technician not found"));
-      }
-
-      if (email && email !== technician.email) {
-        const existingTechnician = await TechnicianModel.findOne({ email });
-        if (existingTechnician && existingTechnician._id.toString() !== id) {
-          return res
-            .status(400)
-            .json(new ApiError(400, null, "Email already exists"));
-        }
-      }
-
-      technician.firstName = firstName;
-      technician.lastName = lastName;
-      technician.email = email;
-      technician.phone = phone;
-
-      const updatedTechnician = await technician.save();
-      return res
-        .status(200)
-        .json(
-          new ApiResponse(
-            200,
-            updatedTechnician,
-            "Technician details updated successfully"
           )
         );
     }
@@ -75,7 +34,7 @@ const createTechnician = async (req, res) => {
     });
 
     const savedTechnician = await technician.save();
-    res
+    return res
       .status(201)
       .json(
         new ApiResponse(201, savedTechnician, "Technician created successfully")
@@ -88,7 +47,6 @@ const createTechnician = async (req, res) => {
 const getAllTechnician = async (req, res) => {
   try {
     const { search, page, limit } = req.query;
-
     const filter = {};
 
     if (search) {
@@ -126,20 +84,21 @@ const getAllTechnician = async (req, res) => {
       items = await TechnicianModel.find(filter).sort({ createdAt: -1 });
     }
 
-    return res.status(200).json(
-      new ApiResponse(
-        200,
-        { items, pagination },
-        "Technicians fetched successfully"
-      )
-    );
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          { items, pagination },
+          "Technicians fetched successfully"
+        )
+      );
   } catch (error) {
     console.error(error);
     res.status(500).json(new ApiError(500, error.message || "Server error"));
   }
 };
 
-// Delete a technician
 const deleteTechnician = async (req, res) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) {
@@ -162,8 +121,54 @@ const deleteTechnician = async (req, res) => {
   }
 };
 
+const updateTechnician = async (req, res) => {
+  try {
+    const { id, firstName, lastName, email, phone, isActive } = req.body;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json(new ApiError(400, null, "Invalid ID format"));
+    }
+
+    const technician = await TechnicianModel.findById(id);
+    if (!technician) {
+      return res
+        .status(404)
+        .json(new ApiError(404, null, "Technician not found"));
+    }
+
+    if (email && email !== technician.email) {
+      const existingTechnician = await TechnicianModel.findOne({ email });
+      if (existingTechnician && existingTechnician._id.toString() !== id) {
+        return res
+          .status(400)
+          .json(new ApiError(400, null, "Email already exists"));
+      }
+    }
+
+    if (firstName) technician.firstName = firstName;
+    if (lastName) technician.lastName = lastName;
+    if (email) technician.email = email;
+    if (phone) technician.phone = phone;
+    if (isActive !== undefined) technician.isActive = isActive; 
+
+    const updatedTechnician = await technician.save();
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          updatedTechnician,
+          "Technician details updated successfully"
+        )
+      );
+  } catch (error) {
+    res.status(500).json(new ApiError(500, error.message || "Server error"));
+  }
+};
+
 module.exports = {
   createTechnician,
   getAllTechnician,
+  updateTechnician,
   deleteTechnician,
 };

@@ -96,6 +96,13 @@ const createTimeSlot = async (req, res) => {
         );
     }
 
+    const existingTimeSlot = await TimeSlot.findOne();
+    if (existingTimeSlot) {
+      return res
+        .status(400)
+        .json(new ApiError(400, "Only one time slot can be created"));
+    }
+
     const startMinutes = timeToMinutes(startTime);
     const endMinutes = timeToMinutes(endTime);
 

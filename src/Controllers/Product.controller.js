@@ -132,7 +132,6 @@ const CreateProduct = async (req, res) => {
       isActive,
     } = req.body;
 
-    // Required fields validation
     if (
       !name ||
       !category ||
@@ -147,6 +146,22 @@ const CreateProduct = async (req, res) => {
           new ApiError(
             400,
             "name, category, brand, sku, price and stock are required"
+          )
+        );
+    }
+
+    const existingProduct = await Product.findOne({
+      name: name.trim(),
+      sku: sku.trim(),
+    });
+
+    if (existingProduct) {
+      return res
+        .status(400)
+        .json(
+          new ApiError(
+            400,
+            `Product with name "${name}" and SKU "${sku}" already exists`
           )
         );
     }
@@ -220,6 +235,7 @@ const CreateProduct = async (req, res) => {
 const getProductById = async (req, res) => {
   try {
     const id = req.params?.id;
+    console.log(id)
     if (!id) {
       return res.status(400).json(new ApiError(400, "Product id is required"));
     }
