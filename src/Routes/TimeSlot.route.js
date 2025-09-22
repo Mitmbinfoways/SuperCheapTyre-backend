@@ -6,12 +6,12 @@ const {
   createTimeSlot,
   updateTimeSlot,
   deleteTimeSlot,
-  getTimeSlotSlots,
 } = require("../Controllers/TimeSlot.controller");
 
 TimeSlotRoute.get("/", getAllTimeSlots);
+TimeSlotRoute.get("/:id", getTimeSlotById); 
 TimeSlotRoute.post("/", createTimeSlot);
-TimeSlotRoute.put("/", updateTimeSlot);
+TimeSlotRoute.patch("/:id", updateTimeSlot);
 TimeSlotRoute.delete("/:id", deleteTimeSlot);
 
 module.exports = TimeSlotRoute;

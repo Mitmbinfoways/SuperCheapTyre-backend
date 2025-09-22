@@ -211,8 +211,8 @@ const createAppointment = async (req, res) => {
 
     if (already) {
       return res
-        .status(409)
-        .json(new ApiError(409, "This slot is already booked"));
+        .status(400)
+        .json(new ApiError(400, "This slot is already booked"));
     }
 
     // Create appointment

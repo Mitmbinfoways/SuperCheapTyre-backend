@@ -25,8 +25,8 @@ const timeSlotSchema = new mongoose.Schema(
     duration: {
       type: Number,
       required: true,
-      min: 15, // minimum 15 minutes
-      max: 480, // maximum 8 hours
+      min: 15, 
+      max: 480,
     },
     isActive: {
       type: Boolean,

@@ -27,8 +27,8 @@ const createHoliday = async (req, res) => {
       });
       if (duplicate) {
         return res
-          .status(409)
-          .json(new ApiError(409, "Holiday already exists for this date"));
+          .status(400)
+          .json(new ApiError(400, "Holiday already exists for this date"));
       }
 
       exists.date = isoDate;
@@ -44,8 +44,8 @@ const createHoliday = async (req, res) => {
     const exists = await Holiday.findOne({ date: isoDate });
     if (exists) {
       return res
-        .status(409)
-        .json(new ApiError(409, "Holiday already exists for this date"));
+        .status(400)
+        .json(new ApiError(400, "Holiday already exists for this date"));
     }
 
     const created = await Holiday.create({ date: isoDate, reason, createdBy });

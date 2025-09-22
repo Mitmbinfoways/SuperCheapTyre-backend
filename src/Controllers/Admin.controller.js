@@ -26,8 +26,8 @@ const RegiesterAdmin = async (req, res) => {
 
     if (existing) {
       return res
-        .status(409)
-        .json(new ApiError(409, "Admin user is already exists"));
+        .status(400)
+        .json(new ApiError(400, "Admin user is already exists"));
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);

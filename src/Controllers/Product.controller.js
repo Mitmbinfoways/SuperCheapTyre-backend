@@ -23,6 +23,7 @@ const getAllProducts = async (req, res) => {
       fitments,
       staggeredOptions,
       diameter,
+      search,
       page,
       limit,
     } = req.query;
@@ -74,6 +75,25 @@ const getAllProducts = async (req, res) => {
         $regex: staggeredOptions,
         $options: "i",
       };
+
+    if (search) {
+      const searchRegex = { $regex: search, $options: "i" };
+      filter.$or = [
+        { name: searchRegex },
+        { SKUname: searchRegex },
+        { brand: searchRegex },
+        { category: searchRegex },
+        { "tyreSpecifications.pattern": searchRegex },
+        { "tyreSpecifications.width": searchRegex },
+        { "tyreSpecifications.profile": searchRegex },
+        { "tyreSpecifications.loadRating": searchRegex },
+        { "tyreSpecifications.speedRating": searchRegex },
+        { "wheelSpecifications.size": searchRegex },
+        { "wheelSpecifications.color": searchRegex },
+        { "wheelSpecifications.fitments": searchRegex },
+        { "wheelSpecifications.staggeredOptions": searchRegex },
+      ];
+    }
 
     let items;
     let pagination = null;
@@ -235,7 +255,7 @@ const CreateProduct = async (req, res) => {
 const getProductById = async (req, res) => {
   try {
     const id = req.params?.id;
-    console.log(id)
+    console.log(id);
     if (!id) {
       return res.status(400).json(new ApiError(400, "Product id is required"));
     }

@@ -83,9 +83,29 @@ const getAllTimeSlots = async (req, res) => {
   }
 };
 
+// GET /timeslots/:id
+const getTimeSlotById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const timeSlot = await TimeSlot.findById(id);
+
+    if (!timeSlot) {
+      return res.status(404).json(new ApiError(404, "Time slot not found"));
+    }
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, timeSlot, "Time slot fetched successfully"));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json(new ApiError(500, "Internal Server Error"));
+  }
+};
+
 // POST /timeslots
 const createTimeSlot = async (req, res) => {
   try {
+    console.log(req.body)
     const { startTime, endTime, breakTime, duration } = req.body;
 
     if (!startTime || !endTime || !duration) {
@@ -165,10 +185,11 @@ const createTimeSlot = async (req, res) => {
   }
 };
 
-// PUT /timeslots/:id
+// PATCH /timeslots/:id
 const updateTimeSlot = async (req, res) => {
   try {
-    const { id, startTime, endTime, breakTime, duration, isActive } = req.body;
+    const { id } = req.params;
+    const { startTime, endTime, breakTime, duration, isActive } = req.body;
 
     const timeSlot = await TimeSlot.findById(id);
     if (!timeSlot) {
@@ -271,6 +292,7 @@ const deleteTimeSlot = async (req, res) => {
 module.exports = {
   getAllTimeSlots,
   createTimeSlot,
+  getTimeSlotById,
   updateTimeSlot,
   deleteTimeSlot,
 };
