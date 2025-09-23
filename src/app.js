@@ -10,24 +10,40 @@ const TimeSlotRoute = require("./Routes/TimeSlot.route");
 const TechnicianRoute = require("./Routes/Technician.route");
 const ContactRoute = require("./Routes/Contact.route");
 
+// Robust CORS configuration with allowlist and preflight handling
 const allowedOrigins = [
-  "https://super-cheap-tyre-admin-5gnixgjzt-mitmbinfoways-projects.vercel.app"
+  process.env.CORS_ORIGIN,
+  process.env.ADMIN_URL,
+  process.env.FRONTEND_URL,
+  "http://localhost:3000",
+  "http://localhost:5173",
+  // Allow any Vercel preview/prod subdomain
+  /\.vercel\.app$/,
 ];
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true); // allow non-browser tools
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-  })
-);
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow server-to-server or curl (no origin)
+    if (!origin) return callback(null, true);
 
+    const isAllowed = allowedOrigins.some((allowed) => {
+      if (!allowed) return false;
+      if (allowed instanceof RegExp) return allowed.test(origin);
+      return allowed === origin;
+    });
+
+    if (isAllowed) return callback(null, true);
+    return callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+  methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  exposedHeaders: ["Content-Length"],
+  optionsSuccessStatus: 204,
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "..", "public")));
