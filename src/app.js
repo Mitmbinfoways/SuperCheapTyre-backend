@@ -10,12 +10,32 @@ const TimeSlotRoute = require("./Routes/TimeSlot.route");
 const TechnicianRoute = require("./Routes/Technician.route");
 const ContactRoute = require("./Routes/Contact.route");
 
-console.log(process.env.CORS_ORIGIN);
-const corsOptions = {
-  origin: process.env.CORS_ORIGIN || "*",
-};
+const cors = require("cors");
 
-app.use(cors(corsOptions));
+const allowedOrigins = [
+  "https://super-cheap-tyre-admin-5gnixgjzt-mitmbinfoways-projects.vercel.app"
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true); // allow non-browser tools
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  })
+);
+
+// Important: handle preflight
+app.options("*", cors({
+  origin: allowedOrigins,
+  credentials: true,
+}));
+
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "..", "public")));
