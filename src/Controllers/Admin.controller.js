@@ -58,7 +58,7 @@ const AdminLogin = async (req, res) => {
 
     const isPasswordValid = await bcrypt.compare(password, admin.password);
     if (!isPasswordValid) {
-      return res.status(401).json(new ApiError(401, "Invalid credentials"));
+      return res.status(400).json(new ApiError(400, "Invalid credentials"));
     }
 
     const token = jwt.sign({ id: admin._id }, JWT_SECRET, {
@@ -80,7 +80,7 @@ const AdminLogin = async (req, res) => {
 const RequestReset = async (req, res) => {
   try {
     const { email } = req.body;
-    console.log(email)
+    console.log(email);
 
     if (!email) {
       return res.status(400).json(new ApiError(400, "Email is required"));
@@ -92,7 +92,7 @@ const RequestReset = async (req, res) => {
     }
 
     const resetToken = jwt.sign({ id: admin._id }, JWT_SECRET, {
-      expiresIn: "1h",
+      expiresIn: "1m",
     });
 
     const resetLink = `http://localhost:3000/reset-password?token=${resetToken}`;
@@ -111,6 +111,22 @@ const RequestReset = async (req, res) => {
   } catch (error) {
     console.error("RequestReset error:", error);
     return res.status(500).json(new ApiError(500, "Server error"));
+  }
+};
+
+const GetAdminById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const admin = await AdminModel.findById(id);
+    if (!admin) {
+      return res.status(404).json(new ApiError(404, "Admin not found"));
+    }
+    return res
+      .status(200)
+      .json(new ApiResponse(200, admin, "Admin fetched successfully"));
+  } catch (error) {
+    console.error("getAdminById Error:", error);
+    return res.status(500).json(new ApiError(500, "Internal Server Error"));
   }
 };
 
@@ -170,10 +186,10 @@ const UpdateProfile = async (req, res) => {
       const isMatch = await bcrypt.compare(oldPassword, admin.password);
       if (!isMatch) {
         return res
-          .status(401)
+          .status(400)
           .json(
             new ApiError(
-              401,
+              400,
               "Old password is incorrect Please enter correct password"
             )
           );
@@ -207,6 +223,7 @@ module.exports = {
   RegiesterAdmin,
   AdminLogin,
   RequestReset,
+  GetAdminById,
   ForgotPassword,
   UpdateProfile,
 };

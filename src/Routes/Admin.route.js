@@ -7,6 +7,7 @@ const {
   RequestReset,
   ForgotPassword,
   UpdateProfile,
+  GetAdminById,
 } = require("../Controllers/Admin.controller");
 const AdminRoute = express.Router();
 
@@ -28,5 +29,6 @@ AdminRoute.post("/login", AdminLogin);
 AdminRoute.post("/request-reset", RequestReset);
 AdminRoute.post("/forgot-password", ForgotPassword);
 AdminRoute.patch("/update", UpdateProfile);
+AdminRoute.get("/:id", GetAdminById);
 
 module.exports = AdminRoute;
