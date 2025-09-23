@@ -10,8 +10,6 @@ const TimeSlotRoute = require("./Routes/TimeSlot.route");
 const TechnicianRoute = require("./Routes/Technician.route");
 const ContactRoute = require("./Routes/Contact.route");
 
-const cors = require("cors");
-
 const allowedOrigins = [
   "https://super-cheap-tyre-admin-5gnixgjzt-mitmbinfoways-projects.vercel.app"
 ];
