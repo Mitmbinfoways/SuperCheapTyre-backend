@@ -28,12 +28,6 @@ app.use(
   })
 );
 
-// Important: handle preflight
-app.options("*", cors({
-  origin: allowedOrigins,
-  credentials: true,
-}));
-
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "..", "public")));
