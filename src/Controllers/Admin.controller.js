@@ -80,6 +80,7 @@ const AdminLogin = async (req, res) => {
 const RequestReset = async (req, res) => {
   try {
     const { email } = req.body;
+    console.log(email)
 
     if (!email) {
       return res.status(400).json(new ApiError(400, "Email is required"));
@@ -94,7 +95,7 @@ const RequestReset = async (req, res) => {
       expiresIn: "1h",
     });
 
-    const resetLink = `https://yourfrontend.com/reset-password?token=${resetToken}`;
+    const resetLink = `http://localhost:3000/reset-password?token=${resetToken}`;
 
     const htmlContent = `
       <h2>Password Reset Request</h2>
