@@ -26,12 +26,12 @@ const productStorage = multer.diskStorage({
 
 const uploadProductImages = multer({ storage: productStorage });
 
+ProductRoute.get("/bestSeller", BestSellerProduct);
+ProductRoute.get("/dashboard" ,DashboardCount)
 ProductRoute.get("/", getAllProducts);
 ProductRoute.get("/:id", getProductById);
 ProductRoute.post("/", uploadProductImages.array("images", 5), CreateProduct);
 ProductRoute.patch("/:id", uploadProductImages.array("images", 5), UpdateProduct);
 ProductRoute.delete("/:id", DeleteProduct);
-ProductRoute.get("/bestSeller", BestSellerProduct);
-ProductRoute.get("/dashboard" ,DashboardCount)
 
 module.exports = ProductRoute;

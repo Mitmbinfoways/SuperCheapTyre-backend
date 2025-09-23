@@ -389,26 +389,40 @@ const UpdateProduct = async (req, res) => {
       existing.wheelSpecifications = finalWheelSpecs;
     }
 
-    // Handle images (keep + newly uploaded + delete removed ones)
     const uploadedImages = Array.isArray(req.files)
       ? req.files.map((f) => f.filename)
       : [];
-    const bodyImages = Array.isArray(images) ? images : images ? [images] : [];
 
-    if (bodyImages.length > 0 || uploadedImages.length > 0) {
-      const finalImages = Array.from(
-        new Set([...bodyImages, ...uploadedImages])
-      );
+    let keepImagesFromBody;
+    if (Object.prototype.hasOwnProperty.call(req.body, "images")) {
+      if (Array.isArray(images)) {
+        keepImagesFromBody = images;
+      } else if (typeof images === "string") {
+        try {
+          const parsed = JSON.parse(images);
+          keepImagesFromBody = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
+        } catch (_) {
+          keepImagesFromBody = images ? [images] : [];
+        }
+      } else if (images == null) {
+        keepImagesFromBody = [];
+      } else {
+        keepImagesFromBody = [];
+      }
+    }
 
-      const previousImages = Array.isArray(existing.images)
-        ? existing.images
-        : [];
-      const toDelete = previousImages.filter(
-        (img) => !finalImages.includes(img)
-      );
+    if (typeof keepImagesFromBody !== "undefined" || uploadedImages.length > 0) {
+      const keepList = typeof keepImagesFromBody !== "undefined"
+        ? (keepImagesFromBody || [])
+        : (Array.isArray(existing.images) ? existing.images : []);
+      const finalImages = Array.from(new Set([...keepList, ...uploadedImages]));
+
+      const previousImages = Array.isArray(existing.images) ? existing.images : [];
+      const toDelete = previousImages.filter((img) => !finalImages.includes(img));
 
       if (toDelete.length > 0) {
         const deletions = toDelete.map(async (filename) => {
+          if (!filename) return;
           const filePath = path.join(
             __dirname,
             "../../public/Product",
@@ -420,6 +434,7 @@ const UpdateProduct = async (req, res) => {
         });
         await Promise.all(deletions);
       }
+
       existing.images = finalImages;
     }
 
