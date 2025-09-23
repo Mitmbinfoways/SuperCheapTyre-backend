@@ -8,10 +8,6 @@ const sendMail = require("../Utils/Nodemailer");
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRESIN = process.env.JWT_EXPIRESIN;
 
-const generateOTP = () => {
-  return Math.floor(1000 + Math.random() * 9000).toString();
-};
-
 const RegiesterAdmin = async (req, res) => {
   try {
     const { name, password, phone, email } = req.body;
@@ -81,41 +77,12 @@ const AdminLogin = async (req, res) => {
   }
 };
 
-const SendOtp = async (req, res) => {
+const RequestReset = async (req, res) => {
   try {
     const { email } = req.body;
 
-    const admin = await AdminModel.findOne({ email });
-    if (!admin) {
-      return res.status(404).json(new ApiError(404, "Admin user not found"));
-    }
-
-    const otp = generateOTP();
-
-    const htmlContent = `
-        <h2>OTP for Password Reset</h2>
-        <p>Hello ${admin.name},</p>
-        <p>Your OTP to reset your password is:</p>
-        <h3>${otp}</h3>
-      `;
-
-    await sendMail(admin.email, "Your Password Reset OTP", htmlContent);
-
-    return res.status(200).json(new ApiResponse(200, otp, "OTP sent to email"));
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json(new ApiError(500, "Internal Server Error"));
-  }
-};
-
-const ForgotPassword = async (req, res) => {
-  try {
-    const { email, newPassword } = req.body;
-
-    if (!email || !newPassword) {
-      return res
-        .status(400)
-        .json(new ApiError(400, "Email and new password are required"));
+    if (!email) {
+      return res.status(400).json(new ApiError(400, "Email is required"));
     }
 
     const admin = await AdminModel.findOne({ email });
@@ -123,9 +90,55 @@ const ForgotPassword = async (req, res) => {
       return res.status(404).json(new ApiError(404, "Admin not found"));
     }
 
+    const resetToken = jwt.sign({ id: admin._id }, JWT_SECRET, {
+      expiresIn: "1h",
+    });
+
+    const resetLink = `https://yourfrontend.com/reset-password?token=${resetToken}`;
+
+    const htmlContent = `
+      <h2>Password Reset Request</h2>
+      <p>Click the link below to reset your password. This link will expire in 1 hour.</p>
+      <a href="${resetLink}" target="_blank">${resetLink}</a>
+    `;
+
+    await sendMail(admin.email, "Password Reset Request", htmlContent);
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, null, "Password reset email sent"));
+  } catch (error) {
+    console.error("RequestReset error:", error);
+    return res.status(500).json(new ApiError(500, "Server error"));
+  }
+};
+
+const ForgotPassword = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res
+        .status(400)
+        .json(new ApiError(400, "Token and new password are required"));
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      return res
+        .status(400)
+        .json(new ApiError(400, "Invalid or expired token"));
+    }
+
+    const admin = await AdminModel.findById(decoded.id);
+    if (!admin) {
+      return res.status(404).json(new ApiError(404, "Admin not found"));
+    }
+
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     admin.password = hashedPassword;
-
     await admin.save();
 
     return res
@@ -192,7 +205,7 @@ const UpdateProfile = async (req, res) => {
 module.exports = {
   RegiesterAdmin,
   AdminLogin,
-  SendOtp,
+  RequestReset,
   ForgotPassword,
   UpdateProfile,
 };

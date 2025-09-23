@@ -4,7 +4,7 @@ const multer = require("multer");
 const {
   RegiesterAdmin,
   AdminLogin,
-  SendOtp,
+  RequestReset,
   ForgotPassword,
   UpdateProfile,
 } = require("../Controllers/Admin.controller");
@@ -25,7 +25,7 @@ const upload = multer({ storage });
 
 AdminRoute.post("/regiester", upload.single("avatar"), RegiesterAdmin);
 AdminRoute.post("/login", AdminLogin);
-AdminRoute.post("/otp", SendOtp);
+AdminRoute.post("/request-reset", RequestReset);
 AdminRoute.post("/forgot-password", ForgotPassword);
 AdminRoute.patch("/update", UpdateProfile);
 

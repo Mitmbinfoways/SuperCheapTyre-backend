@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const bcrypt = require("bcrypt");
 
 const adminSchema = new mongoose.Schema(
   {
@@ -27,12 +28,20 @@ const adminSchema = new mongoose.Schema(
     lastLogin: {
       type: Date,
     },
+    resetPasswordToken: {
+      type: String,
+    },
+    resetPasswordExpires: {
+      type: Date,
+    },
   },
   {
     timestamps: true,
     toJSON: {
       transform: (doc, ret) => {
         delete ret.password;
+        delete ret.resetPasswordToken; 
+        delete ret.resetPasswordExpires; 
         return ret;
       },
     },
