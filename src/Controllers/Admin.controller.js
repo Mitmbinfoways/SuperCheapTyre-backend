@@ -167,10 +167,13 @@ const ForgotPassword = async (req, res) => {
   }
 };
 
+const fs = require("fs");
+const path = require("path");
+
 const UpdateProfile = async (req, res) => {
   try {
-    const { id, email, name, phone, avatar, oldPassword, newPassword } =
-      req.body;
+    const { id, email, name, phone, oldPassword, newPassword } = req.body;
+    const newAvatar = req.file ? req.file.filename : null; // new uploaded file
 
     const admin = await AdminModel.findById(id);
     if (!admin) {
@@ -180,8 +183,24 @@ const UpdateProfile = async (req, res) => {
     if (name) admin.name = name;
     if (email) admin.email = email;
     if (phone) admin.phone = phone;
-    if (avatar) admin.avatar = avatar;
 
+    // Handle avatar update and delete old file
+    if (newAvatar) {
+      if (admin.avatar) {
+        // Delete old file
+        const oldPath = path.join(
+          __dirname,
+          "../../public/AdminProfile",
+          admin.avatar
+        );
+        if (fs.existsSync(oldPath)) {
+          fs.unlinkSync(oldPath);
+        }
+      }
+      admin.avatar = newAvatar; // set new avatar
+    }
+
+    // Handle password update
     if (oldPassword && newPassword) {
       const isMatch = await bcrypt.compare(oldPassword, admin.password);
       if (!isMatch) {
@@ -190,13 +209,11 @@ const UpdateProfile = async (req, res) => {
           .json(
             new ApiError(
               400,
-              "Old password is incorrect Please enter correct password"
+              "Old password is incorrect. Please enter correct password"
             )
           );
       }
-
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
-      admin.password = hashedPassword;
+      admin.password = await bcrypt.hash(newPassword, 10);
     } else if (oldPassword || newPassword) {
       return res
         .status(400)

@@ -28,7 +28,7 @@ AdminRoute.post("/regiester", upload.single("avatar"), RegiesterAdmin);
 AdminRoute.post("/login", AdminLogin);
 AdminRoute.post("/request-reset", RequestReset);
 AdminRoute.post("/forgot-password", ForgotPassword);
-AdminRoute.patch("/update", UpdateProfile);
+AdminRoute.patch("/update",upload.single("avatar"), UpdateProfile);
 AdminRoute.get("/:id", GetAdminById);
 
 module.exports = AdminRoute;
