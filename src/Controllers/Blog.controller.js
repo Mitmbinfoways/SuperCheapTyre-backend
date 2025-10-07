@@ -4,10 +4,41 @@ const ApiResponse = require("../Utils/ApiResponse");
 
 const getAllBlogs = async (req, res) => {
   try {
-    const blogs = await Blog.find().sort({ createdAt: -1 });
-    return res
-      .status(200)
-      .json(new ApiResponse(200, blogs, "Blogs fetched successfully"));
+    let { page = 1, limit = 10, search } = req.query;
+
+    page = parseInt(page);
+    limit = parseInt(limit);
+
+    const filter = {};
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { content: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const totalBlogs = await Blog.countDocuments(filter);
+
+    const blogs = await Blog.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          blogs,
+          pagination: {
+            total: totalBlogs,
+            page,
+            limit,
+            totalPages: Math.ceil(totalBlogs / limit),
+          },
+        },
+        "Blogs fetched successfully"
+      )
+    );
   } catch (error) {
     return res
       .status(500)

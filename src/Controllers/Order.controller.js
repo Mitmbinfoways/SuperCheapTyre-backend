@@ -1,73 +1,118 @@
 const Order = require("../Models/Order.model");
-const Appointment = require("../Models/Appointment.model"); // if you have Appointment model
+const Appointment = require("../Models/Appointment.model");
 const ApiResponse = require("../Utils/ApiResponse");
 const ApiError = require("../Utils/ApiError");
+
+const getAllOrders = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search } = req.query;
+
+    const filter = {};
+
+    if (search) {
+      const searchRegex = { $regex: search, $options: "i" };
+      filter.$or = [
+        { "customer.fullName": searchRegex },
+        { "customer.phone": searchRegex },
+      ];
+    }
+
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    const orders = await Order.find(filter)
+      .populate("appointment")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNumber);
+
+    const totalItems = await Order.countDocuments(filter);
+    const totalPages = Math.ceil(totalItems / limitNumber);
+
+    const pagination = {
+      totalItems,
+      totalPages,
+      currentPage: pageNumber,
+      pageSize: limitNumber,
+    };
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          { orders, pagination },
+          "Orders fetched successfully"
+        )
+      );
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json(new ApiError(500, "Internal Server Error"));
+  }
+};
 
 const createOrder = async (req, res) => {
   try {
     const { items, subtotal, total, appointment, customer, payment } = req.body;
 
-    // Validate items
     if (!items || !Array.isArray(items) || !items.length) {
       return res
         .status(400)
         .json(new ApiError(400, null, "Order items are required"));
     }
-
     for (const item of items) {
-      if (!item.id || !item.name || !item.price || !item.quantity) {
+      if (!item.id || typeof item.quantity !== "number" || item.quantity <= 0) {
         return res
           .status(400)
           .json(
             new ApiError(
               400,
               null,
-              "Each item must have id, name, price, and quantity"
+              "Each item must have a valid id and quantity"
             )
           );
       }
     }
 
-    // Validate subtotal & total
     if (typeof subtotal !== "number" || typeof total !== "number") {
       return res
         .status(400)
         .json(new ApiError(400, null, "Subtotal and total must be numbers"));
     }
-
     if (total < subtotal) {
       return res
         .status(400)
         .json(new ApiError(400, null, "Total cannot be less than subtotal"));
     }
 
-    // Validate appointment
-    if (!appointment) {
+    if (
+      !appointment ||
+      !appointment.date ||
+      !appointment.slotId ||
+      !appointment.timeSlotId
+    ) {
       return res
         .status(400)
-        .json(new ApiError(400, null, "Appointment ID is required"));
+        .json(
+          new ApiError(
+            400,
+            null,
+            "Appointment with date, slotId, and timeSlotId is required"
+          )
+        );
     }
 
-    const appointmentExists = await Appointment.findById(appointment);
-    if (!appointmentExists) {
-      return res
-        .status(404)
-        .json(new ApiError(404, null, "Appointment not found"));
-    }
-
-    // Validate customer
-    if (!customer || !customer.fullName || !customer.phone) {
+    if (!customer || !customer.name || !customer.phone) {
       return res
         .status(400)
         .json(new ApiError(400, null, "Customer information is required"));
     }
 
-    // Optional: Validate payment if provided
-    if (payment) {
-      if (typeof payment.amount !== "number") payment.amount = 0;
-      if (!payment.method) payment.method = "";
-      if (!payment.status) payment.status = "pending";
-    }
+    const paymentData = payment || {};
+    if (typeof paymentData.amount !== "number") paymentData.amount = 0;
+    if (!paymentData.method) paymentData.method = "";
+    if (!paymentData.status) paymentData.status = "pending";
 
     const order = await Order.create({
       items,
@@ -75,7 +120,7 @@ const createOrder = async (req, res) => {
       total,
       appointment,
       customer,
-      payment,
+      payment: paymentData,
     });
 
     return res
@@ -89,4 +134,4 @@ const createOrder = async (req, res) => {
   }
 };
 
-module.exports = { createOrder };
+module.exports = { createOrder, getAllOrders };

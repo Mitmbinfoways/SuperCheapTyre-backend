@@ -29,8 +29,8 @@ const getAllProducts = async (req, res) => {
       staggeredOptions,
       diameter,
       search,
-      page,
-      limit,
+      page = 1,
+      limit = 10,
     } = req.query;
 
     const filter = {};

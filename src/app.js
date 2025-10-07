@@ -9,6 +9,7 @@ const HolidayRoute = require("./Routes/Holiday.route");
 const TimeSlotRoute = require("./Routes/TimeSlot.route");
 const TechnicianRoute = require("./Routes/Technician.route");
 const ContactRoute = require("./Routes/Contact.route");
+const OrderRoute = require("./Routes/Order.route");
 
 app.use(
   cors({
@@ -30,5 +31,6 @@ app.use("/api/v1/holiday", HolidayRoute);
 app.use("/api/v1/timeslot", TimeSlotRoute);
 app.use("/api/v1/technician", TechnicianRoute);
 app.use("/api/v1/contact", ContactRoute);
+app.use("/api/v1/order", OrderRoute);
 
 module.exports = app;

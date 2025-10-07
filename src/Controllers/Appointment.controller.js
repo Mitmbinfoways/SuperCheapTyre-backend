@@ -6,7 +6,7 @@ const TimeSlot = require("../Models/TimeSlot.model");
 // GET /appointments
 const getAllAppointments = async (req, res) => {
   try {
-    const { date, status, search, page, limit } = req.query;
+    const { date, status, search, page = 1, limit = 10 } = req.query;
 
     // Build filter dynamically
     const filter = {};
