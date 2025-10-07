@@ -52,7 +52,7 @@ const getAllContacts = async (req, res) => {
 
 const createContact = async (req, res) => {
   try {
-    const { name, email, message } = req.body;
+    const { name, email, message, phone } = req.body;
 
     if (!name || !email) {
       return res
@@ -60,7 +60,12 @@ const createContact = async (req, res) => {
         .json(new ApiError(400, "Name and email are required"));
     }
 
-    const newContact = await ContactModel.create({ name, email, message });
+    const newContact = await ContactModel.create({
+      name,
+      email,
+      message,
+      phone,
+    });
 
     return res
       .status(201)

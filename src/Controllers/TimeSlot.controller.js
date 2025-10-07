@@ -105,7 +105,6 @@ const getTimeSlotById = async (req, res) => {
 // POST /timeslots
 const createTimeSlot = async (req, res) => {
   try {
-    console.log(req.body)
     const { startTime, endTime, breakTime, duration } = req.body;
 
     if (!startTime || !endTime || !duration) {

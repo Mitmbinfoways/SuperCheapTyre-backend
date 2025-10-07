@@ -80,7 +80,6 @@ const AdminLogin = async (req, res) => {
 const RequestReset = async (req, res) => {
   try {
     const { email } = req.body;
-    console.log(email);
 
     if (!email) {
       return res.status(400).json(new ApiError(400, "Email is required"));

@@ -10,6 +10,7 @@ const appointmentSchema = new mongoose.Schema(
     slotId: { type: String, required: true },
     status: { type: String },
     timeSlotId: { type: String },
+    Employee: { type: String },
     notes: { type: String },
   },
   { timestamps: true }

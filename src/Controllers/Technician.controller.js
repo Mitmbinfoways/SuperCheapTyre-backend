@@ -49,8 +49,8 @@ const getAllTechnician = async (req, res) => {
     const { search, page, limit } = req.query;
     const filter = {};
 
-    if (search) {
-      filter.$or = [
+    if (search && search.trim() !== "") {
+      filter.$or = [  
         { firstName: { $regex: search, $options: "i" } },
         { lastName: { $regex: search, $options: "i" } },
         { email: { $regex: search, $options: "i" } },
@@ -62,8 +62,8 @@ const getAllTechnician = async (req, res) => {
     let pagination = null;
 
     if (page && limit) {
-      const pageNumber = parseInt(page, 10);
-      const limitNumber = parseInt(limit, 10);
+      const pageNumber = parseInt(page, 10) || 1;
+      const limitNumber = parseInt(limit, 10) || 10;
       const skip = (pageNumber - 1) * limitNumber;
 
       items = await TechnicianModel.find(filter)
@@ -89,7 +89,7 @@ const getAllTechnician = async (req, res) => {
       .json(
         new ApiResponse(
           200,
-          { items, pagination },
+          pagination ? { items, pagination } : { items },
           "Technicians fetched successfully"
         )
       );
@@ -149,7 +149,7 @@ const updateTechnician = async (req, res) => {
     if (lastName) technician.lastName = lastName;
     if (email) technician.email = email;
     if (phone) technician.phone = phone;
-    if (isActive !== undefined) technician.isActive = isActive; 
+    if (isActive !== undefined) technician.isActive = isActive;
 
     const updatedTechnician = await technician.save();
     return res

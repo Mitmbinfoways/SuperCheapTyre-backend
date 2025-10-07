@@ -1,6 +1,11 @@
 const ApiResponse = require("../Utils/ApiResponse");
 const ApiError = require("../Utils/ApiError");
 const Product = require("../Models/Product.model");
+const Appointment = require("../Models/Appointment.model");
+const Query = require("../Models/Contact.model");
+const Order = require("../Models/Order.model");
+const Holiday = require("../Models/Holiday.model");
+const Technician = require("../Models/Technician.model");
 const fs = require("fs");
 const path = require("path");
 
@@ -255,7 +260,6 @@ const CreateProduct = async (req, res) => {
 const getProductById = async (req, res) => {
   try {
     const id = req.params?.id;
-    console.log(id);
     if (!id) {
       return res.status(400).json(new ApiError(400, "Product id is required"));
     }
@@ -400,7 +404,11 @@ const UpdateProduct = async (req, res) => {
       } else if (typeof images === "string") {
         try {
           const parsed = JSON.parse(images);
-          keepImagesFromBody = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
+          keepImagesFromBody = Array.isArray(parsed)
+            ? parsed
+            : parsed
+            ? [parsed]
+            : [];
         } catch (_) {
           keepImagesFromBody = images ? [images] : [];
         }
@@ -411,14 +419,24 @@ const UpdateProduct = async (req, res) => {
       }
     }
 
-    if (typeof keepImagesFromBody !== "undefined" || uploadedImages.length > 0) {
-      const keepList = typeof keepImagesFromBody !== "undefined"
-        ? (keepImagesFromBody || [])
-        : (Array.isArray(existing.images) ? existing.images : []);
+    if (
+      typeof keepImagesFromBody !== "undefined" ||
+      uploadedImages.length > 0
+    ) {
+      const keepList =
+        typeof keepImagesFromBody !== "undefined"
+          ? keepImagesFromBody || []
+          : Array.isArray(existing.images)
+          ? existing.images
+          : [];
       const finalImages = Array.from(new Set([...keepList, ...uploadedImages]));
 
-      const previousImages = Array.isArray(existing.images) ? existing.images : [];
-      const toDelete = previousImages.filter((img) => !finalImages.includes(img));
+      const previousImages = Array.isArray(existing.images)
+        ? existing.images
+        : [];
+      const toDelete = previousImages.filter(
+        (img) => !finalImages.includes(img)
+      );
 
       if (toDelete.length > 0) {
         const deletions = toDelete.map(async (filename) => {
@@ -448,9 +466,68 @@ const UpdateProduct = async (req, res) => {
   }
 };
 
-const BestSellerProduct = async () => {};
+const BestSellerProduct = async () => {
+  try {
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json(new ApiError(500, "Internal Server Error"));
+  }
+};
 
-const DashboardCount = async () => {};
+const DashboardCount = async (req, res) => {
+  try {
+    const [
+      productCount,
+      appointmentCount,
+      queryCount,
+      orderCount,
+      holidayCount,
+      employeeCount,
+    ] = await Promise.all([
+      Product.countDocuments(),
+      Appointment.countDocuments(),
+      Query.countDocuments(),
+      Order.countDocuments(),
+      Holiday.countDocuments(),
+      Technician.countDocuments(),
+    ]);
+
+    res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          productCount,
+          appointmentCount,
+          queryCount,
+          orderCount,
+          holidayCount,
+          employeeCount,
+        },
+        "Counts fetched successfully"
+      )
+    );
+  } catch (error) {
+    console.error("DashboardCount Error:", error);
+    return res.status(500).json(new ApiError(500, "Internal Server Error"));
+  }
+};
+
+const HomeData = async (req, res) => {
+  try {
+    const products = await Product.aggregate([{ $sample: { size: 10 } }]);
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, products, "Random products fetched successfully")
+      );
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json(new ApiError(500, null, "Internal Server Error", error.message));
+  }
+};
 
 module.exports = {
   getAllProducts,
@@ -460,4 +537,5 @@ module.exports = {
   BestSellerProduct,
   DashboardCount,
   UpdateProduct,
+  HomeData,
 };

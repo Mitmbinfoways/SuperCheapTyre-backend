@@ -65,80 +65,50 @@ const getAvailableSlots = async (req, res) => {
   try {
     const { date, timeSlotId } = req.query;
 
-    // Validate date input
     if (!date) {
       return res.status(400).json(new ApiError(400, "Date is required"));
     }
 
-    let queryDate;
-    try {
-      const parsedDate = new Date(date);
-      if (isNaN(parsedDate.getTime())) {
-        return res.status(400).json(new ApiError(400, "Invalid date format"));
-      }
-      // Format date to YYYY-MM-DD
-      queryDate = parsedDate.toISOString().split("T")[0]; // e.g., "2025-09-16"
-    } catch (error) {
-      return res.status(400).json(new ApiError(400, "Invalid date format"));
-    }
-
-    // Log the query date for debugging
-    console.log("Query Date:", queryDate);
+    // Normalize date to YYYY-MM-DD
+    const queryDate = new Date(date);
+    queryDate.setHours(0, 0, 0, 0);
 
     // Get time slot configuration
     let timeSlotConfig;
     if (timeSlotId) {
       timeSlotConfig = await TimeSlot.findById(timeSlotId);
-      if (!timeSlotConfig) {
-        return res
-          .status(404)
-          .json(new ApiError(404, "Time slot configuration not found"));
-      }
     } else {
       timeSlotConfig = await TimeSlot.findOne({ isActive: true });
-      if (!timeSlotConfig) {
-        return res
-          .status(404)
-          .json(new ApiError(404, "No active time slot configuration found"));
-      }
     }
 
-    // Find booked appointments for the given date
+    if (!timeSlotConfig) {
+      return res
+        .status(404)
+        .json(new ApiError(404, "Time slot configuration not found"));
+    }
+
+    // Get booked appointments for this date
     const bookedAppointments = await Appointment.find({
       date: queryDate,
+      status: { $in: ["reserved", "confirmed"] },
     });
 
-    // Log booked appointments for debugging
-    console.log(
-      "Booked Appointments:",
-      JSON.stringify(bookedAppointments, null, 2)
-    );
+    const bookedSlotIds = bookedAppointments.map((appt) => appt.slotId); // string
 
-    // Extract booked slot IDs
-    const bookedSlotIds = bookedAppointments.map((appointment) =>
-      String(appointment.slotId)
-    );
-
-    // Log booked slot IDs for debugging
-    console.log("Booked Slot IDs:", bookedSlotIds);
-
-    // Map all slots with isAvailable field
+    // Map generated slots with availability
     const slots = timeSlotConfig.generatedSlots.map((slot) => ({
-      slotId: slot._id,
+      slotId: slot.slotId,
       startTime: slot.startTime,
       endTime: slot.endTime,
-      isAvailable: !slot.isBreak && !bookedSlotIds.includes(String(slot._id)),
+      isAvailable: !slot.isBreak && !bookedSlotIds.includes(slot.slotId),
     }));
-
-    // Log all slots for debugging
-    console.log("All Slots:", JSON.stringify(slots, null, 2));
 
     return res
       .status(200)
       .json(
         new ApiResponse(
           200,
-          { date: queryDate, slots },
+          { date: queryDate.toISOString().split("T")[0], slots },
           "Slots retrieved successfully"
         )
       );
@@ -166,7 +136,7 @@ const createAppointment = async (req, res) => {
     if (!date || !slotId) {
       return res
         .status(400)
-        .json(new ApiError(400, "date and slotId are required"));
+        .json(new ApiError(400, "Date and slotId are required"));
     }
 
     // Normalize date to YYYY-MM-DD
@@ -193,9 +163,8 @@ const createAppointment = async (req, res) => {
 
     // Validate slotId exists in generatedSlots
     const validSlot = timeSlotConfig.generatedSlots.find(
-      (slot) => String(slot._id) === String(slotId)
+      (slot) => slot.slotId === slotId
     );
-
     if (!validSlot) {
       return res
         .status(400)
@@ -205,7 +174,7 @@ const createAppointment = async (req, res) => {
     // Check if slot is already booked
     const already = await Appointment.findOne({
       date: appointmentDate,
-      slotId: validSlot._id,
+      slotId: validSlot.slotId,
       status: { $in: ["reserved", "confirmed"] },
     });
 
@@ -222,7 +191,7 @@ const createAppointment = async (req, res) => {
       phone,
       email,
       date: appointmentDate,
-      slotId: validSlot._id,
+      slotId: validSlot.slotId, // ✅ store slotId string
       timeSlotId: timeSlotConfig._id,
       notes,
       status: status || "booked",
@@ -232,7 +201,105 @@ const createAppointment = async (req, res) => {
       .status(201)
       .json(new ApiResponse(201, created, "Appointment created"));
   } catch (error) {
-    console.log(error);
+    console.error("Error creating appointment:", error);
+    return res.status(500).json(new ApiError(500, "Internal Server Error"));
+  }
+};
+
+const updateAppointment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      firstname,
+      lastname,
+      phone,
+      email,
+      date,
+      slotId,
+      status,
+      timeSlotId,
+      notes,
+      Employee,
+    } = req.body;
+
+    // Find existing appointment
+    const appointment = await Appointment.findById(id);
+    if (!appointment) {
+      return res.status(404).json(new ApiError(404, "Appointment not found"));
+    }
+
+    // If updating date or slot, validate
+    let appointmentDate = appointment.date;
+    if (date) {
+      const parsedDate = new Date(date);
+      if (isNaN(parsedDate.getTime())) {
+        return res.status(400).json(new ApiError(400, "Invalid date format"));
+      }
+      parsedDate.setHours(0, 0, 0, 0);
+      appointmentDate = parsedDate;
+    }
+
+    let updatedSlotId = appointment.slotId;
+    let updatedTimeSlotId = appointment.timeSlotId;
+
+    if (slotId) {
+      const timeSlotConfig = timeSlotId
+        ? await TimeSlot.findById(timeSlotId)
+        : await TimeSlot.findOne({ isActive: true });
+
+      if (!timeSlotConfig) {
+        return res
+          .status(404)
+          .json(new ApiError(404, "Time slot configuration not found"));
+      }
+
+      const validSlot = timeSlotConfig.generatedSlots.find(
+        (slot) => String(slot._id) === String(slotId)
+      );
+
+      if (!validSlot || validSlot.isBreak) {
+        return res
+          .status(400)
+          .json(new ApiError(400, "Invalid or break time slot selected"));
+      }
+
+      // Check if slot is already booked
+      const already = await Appointment.findOne({
+        _id: { $ne: id }, // exclude current appointment
+        date: appointmentDate,
+        slotId: validSlot._id,
+        status: { $in: ["reserved", "confirmed"] },
+      });
+
+      if (already) {
+        return res
+          .status(400)
+          .json(new ApiError(400, "This slot is already booked"));
+      }
+
+      updatedSlotId = validSlot._id;
+      updatedTimeSlotId = timeSlotConfig._id;
+    }
+
+    // Update appointment
+    appointment.firstname = firstname ?? appointment.firstname;
+    appointment.lastname = lastname ?? appointment.lastname;
+    appointment.phone = phone ?? appointment.phone;
+    appointment.email = email ?? appointment.email;
+    appointment.date = appointmentDate;
+    appointment.slotId = updatedSlotId;
+    appointment.timeSlotId = updatedTimeSlotId;
+    appointment.status = status ?? appointment.status;
+    appointment.notes = notes ?? appointment.notes;
+    appointment.Employee = Employee ?? appointment.Employee;
+
+    const updated = await appointment.save();
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, updated, "Appointment updated successfully"));
+  } catch (error) {
+    console.error("Error in updateAppointment:", error);
     return res.status(500).json(new ApiError(500, "Internal Server Error"));
   }
 };
@@ -241,4 +308,5 @@ module.exports = {
   getAllAppointments,
   getAvailableSlots,
   createAppointment,
+  updateAppointment,
 };
