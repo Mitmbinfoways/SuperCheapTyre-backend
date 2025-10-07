@@ -1,5 +1,6 @@
 const express = require("express");
 const path = require("path");
+const fs = require("fs");
 const multer = require("multer");
 const {
   getAllBlogs,
@@ -14,7 +15,15 @@ const BlogRoute = express.Router();
 // Multer setup for blog images
 const blogStorage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, "../../public/Blog"));
+    const uploadDir = path.join(__dirname, "../../public/Blog");
+    try {
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+    } catch (err) {
+      return cb(err);
+    }
+    cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);

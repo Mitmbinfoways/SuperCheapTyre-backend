@@ -540,6 +540,8 @@ const HomeData = async (req, res) => {
     );
 
     const randomProducts = await Product.aggregate([{ $sample: { size: 10 } }]);
+    
+    const newArrivals = await Product.find({}).sort({ createdAt: -1 }).limit(1);
 
     return res.status(200).json(
       new ApiResponse(
@@ -547,6 +549,7 @@ const HomeData = async (req, res) => {
         {
           productData: randomProducts,
           bestSeller: sortedBestSellers,
+          newArrival: newArrivals,
         },
         "HomeData fetched successfully"
       )

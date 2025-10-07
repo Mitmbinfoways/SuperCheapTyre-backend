@@ -21,9 +21,7 @@ const createTechnician = async (req, res) => {
 
     const existingTechnician = await TechnicianModel.findOne({ email });
     if (existingTechnician) {
-      return res
-        .status(400)
-        .json(new ApiError(400, null, "Email already exists"));
+      return res.status(400).json(new ApiError(400, "Email already exists"));
     }
 
     const technician = new TechnicianModel({
@@ -50,7 +48,7 @@ const getAllTechnician = async (req, res) => {
     const filter = {};
 
     if (search && search.trim() !== "") {
-      filter.$or = [  
+      filter.$or = [
         { firstName: { $regex: search, $options: "i" } },
         { lastName: { $regex: search, $options: "i" } },
         { email: { $regex: search, $options: "i" } },
@@ -102,14 +100,12 @@ const getAllTechnician = async (req, res) => {
 const deleteTechnician = async (req, res) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) {
-      return res.status(400).json(new ApiError(400, null, "Invalid ID format"));
+      return res.status(400).json(new ApiError(400, "Invalid ID format"));
     }
 
     const technician = await TechnicianModel.findById(req.params.id);
     if (!technician) {
-      return res
-        .status(404)
-        .json(new ApiError(404, null, "Technician not found"));
+      return res.status(404).json(new ApiError(404, "Technician not found"));
     }
 
     await TechnicianModel.deleteOne({ _id: req.params.id });
@@ -126,22 +122,18 @@ const updateTechnician = async (req, res) => {
     const { id, firstName, lastName, email, phone, isActive } = req.body;
 
     if (!mongoose.isValidObjectId(id)) {
-      return res.status(400).json(new ApiError(400, null, "Invalid ID format"));
+      return res.status(400).json(new ApiError(400, "Invalid ID format"));
     }
 
     const technician = await TechnicianModel.findById(id);
     if (!technician) {
-      return res
-        .status(404)
-        .json(new ApiError(404, null, "Technician not found"));
+      return res.status(404).json(new ApiError(404, "Technician not found"));
     }
 
     if (email && email !== technician.email) {
       const existingTechnician = await TechnicianModel.findOne({ email });
       if (existingTechnician && existingTechnician._id.toString() !== id) {
-        return res
-          .status(400)
-          .json(new ApiError(400, null, "Email already exists"));
+        return res.status(400).json(new ApiError(400, "Email already exists"));
       }
     }
 

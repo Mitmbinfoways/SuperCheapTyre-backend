@@ -1,4 +1,6 @@
+const mongoose = require("mongoose");
 const Order = require("../Models/Order.model");
+const Product = require("../Models/Product.model");
 const ApiResponse = require("../Utils/ApiResponse");
 const ApiError = require("../Utils/ApiError");
 
@@ -11,7 +13,7 @@ const getAllOrders = async (req, res) => {
     if (search) {
       const searchRegex = { $regex: search, $options: "i" };
       filter.$or = [
-        { "customer.fullName": searchRegex },
+        { "customer.name": searchRegex },
         { "customer.phone": searchRegex },
       ];
     }
@@ -21,10 +23,27 @@ const getAllOrders = async (req, res) => {
     const skip = (pageNumber - 1) * limitNumber;
 
     const orders = await Order.find(filter)
-      .populate("appointment")
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limitNumber);
+      .limit(limitNumber)
+      .lean();
+
+    const productIds = [
+      ...new Set(orders.flatMap((order) => order.items.map((i) => i.id))),
+    ];
+
+    const products = await Product.find({ _id: { $in: productIds } })
+      .select("name price images sku")
+      .lean();
+
+    const enrichedOrders = orders.map((order) => ({
+      ...order,
+      items: order.items.map((item) => ({
+        ...item,
+        productDetails:
+          products.find((p) => p._id.toString() === item.id.toString()) || null,
+      })),
+    }));
 
     const totalItems = await Order.countDocuments(filter);
     const totalPages = Math.ceil(totalItems / limitNumber);
@@ -41,12 +60,12 @@ const getAllOrders = async (req, res) => {
       .json(
         new ApiResponse(
           200,
-          { orders, pagination },
+          { orders: enrichedOrders, pagination },
           "Orders fetched successfully"
         )
       );
   } catch (error) {
-    console.error(error);
+    console.error("Error fetching orders:", error);
     return res.status(500).json(new ApiError(500, "Internal Server Error"));
   }
 };
@@ -58,7 +77,7 @@ const createOrder = async (req, res) => {
     if (!items || !Array.isArray(items) || !items.length) {
       return res
         .status(400)
-        .json(new ApiError(400, null, "Order items are required"));
+        .json(new ApiError(400, "Order items are required"));
     }
     for (const item of items) {
       if (!item.id || typeof item.quantity !== "number" || item.quantity <= 0) {
@@ -77,12 +96,12 @@ const createOrder = async (req, res) => {
     if (typeof subtotal !== "number" || typeof total !== "number") {
       return res
         .status(400)
-        .json(new ApiError(400, null, "Subtotal and total must be numbers"));
+        .json(new ApiError(400, "Subtotal and total must be numbers"));
     }
     if (total < subtotal) {
       return res
         .status(400)
-        .json(new ApiError(400, null, "Total cannot be less than subtotal"));
+        .json(new ApiError(400, "Total cannot be less than subtotal"));
     }
 
     if (
@@ -105,7 +124,7 @@ const createOrder = async (req, res) => {
     if (!customer || !customer.name || !customer.phone) {
       return res
         .status(400)
-        .json(new ApiError(400, null, "Customer information is required"));
+        .json(new ApiError(400, "Customer information is required"));
     }
 
     const paymentData = payment || {};
@@ -129,7 +148,7 @@ const createOrder = async (req, res) => {
     console.error(error);
     return res
       .status(500)
-      .json(new ApiError(500, null, "Failed to create order", error.message));
+      .json(new ApiError(500, error.message || "Failed to create order"));
   }
 };
 
