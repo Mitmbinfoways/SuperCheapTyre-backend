@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const ApiResponse = require("../Utils/ApiResponse");
 const ApiError = require("../Utils/ApiError");
 const Product = require("../Models/Product.model");
@@ -514,18 +515,49 @@ const DashboardCount = async (req, res) => {
 
 const HomeData = async (req, res) => {
   try {
-    const products = await Product.aggregate([{ $sample: { size: 10 } }]);
+    const bestSellersAgg = await Order.aggregate([
+      { $unwind: "$items" },
+      {
+        $group: {
+          _id: "$items.id",
+          totalOrdered: { $sum: "$items.quantity" },
+        },
+      },
+      { $sort: { totalOrdered: -1 } },
+      { $limit: 2 },
+    ]);
 
-    return res
-      .status(200)
-      .json(
-        new ApiResponse(200, products, "Random products fetched successfully")
-      );
+    const bestSellerIds = bestSellersAgg.map(
+      (p) => new mongoose.Types.ObjectId(p._id)
+    );
+
+    const bestSellerProducts = await Product.find({
+      _id: { $in: bestSellerIds },
+    });
+
+    const sortedBestSellers = bestSellerIds.map((id) =>
+      bestSellerProducts.find((p) => p._id.equals(id))
+    );
+
+    const randomProducts = await Product.aggregate([{ $sample: { size: 10 } }]);
+
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          productData: randomProducts,
+          bestSeller: sortedBestSellers,
+        },
+        "HomeData fetched successfully"
+      )
+    );
   } catch (error) {
     console.error(error);
-    return res
-      .status(500)
-      .json(new ApiError(500, null, "Internal Server Error", error.message));
+    return res.status(500).json({
+      status: 500,
+      message: "Internal Server Error",
+      error: error.message,
+    });
   }
 };
 

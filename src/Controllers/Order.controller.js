@@ -1,5 +1,4 @@
 const Order = require("../Models/Order.model");
-const Appointment = require("../Models/Appointment.model");
 const ApiResponse = require("../Utils/ApiResponse");
 const ApiError = require("../Utils/ApiError");
 
