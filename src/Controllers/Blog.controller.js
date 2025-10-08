@@ -107,7 +107,6 @@ const createBlog = async (req, res) => {
           .json(
             new ApiError(
               400,
-              null,
               "Items array (with image and content) is required for card/alternative format"
             )
           );
