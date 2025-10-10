@@ -23,11 +23,33 @@ const getAllBlogs = async (req, res) => {
       .skip((page - 1) * limit)
       .limit(limit);
 
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    
+    // Add image URLs to blogs
+    const blogsWithImageUrls = blogs.map(blog => {
+      const blogObj = blog.toObject();
+      
+      // Add image URLs for carousel format
+      if (blogObj.images && blogObj.images.length > 0) {
+        blogObj.imageUrls = blogObj.images.map(img => `${baseUrl}/${img}`);
+      }
+      
+      // Add image URLs for items in card/alternative/center formats
+      if (blogObj.items && blogObj.items.length > 0) {
+        blogObj.items = blogObj.items.map(item => ({
+          ...item,
+          imageUrl: item.image ? `${baseUrl}/${item.image}` : null
+        }));
+      }
+      
+      return blogObj;
+    });
+
     return res.status(200).json(
       new ApiResponse(
         200,
         {
-          blogs,
+          blogs: blogsWithImageUrls,
           pagination: {
             total: totalBlogs,
             page,
@@ -57,9 +79,25 @@ const getBlogById = async (req, res) => {
       return res.status(404).json(new ApiError(404, "Blog not found"));
     }
 
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const blogObj = blog.toObject();
+    
+    // Add image URLs for carousel format
+    if (blogObj.images && blogObj.images.length > 0) {
+      blogObj.imageUrls = blogObj.images.map(img => `${baseUrl}/${img}`);
+    }
+    
+    // Add image URLs for items in card/alternative/center formats
+    if (blogObj.items && blogObj.items.length > 0) {
+      blogObj.items = blogObj.items.map(item => ({
+        ...item,
+        imageUrl: item.image ? `${baseUrl}/${item.image}` : null
+      }));
+    }
+
     return res
       .status(200)
-      .json(new ApiResponse(200, blog, "Blog fetched successfully"));
+      .json(new ApiResponse(200, blogObj, "Blog fetched successfully"));
   } catch (error) {
     return res
       .status(500)
@@ -80,7 +118,7 @@ const createBlog = async (req, res) => {
     let blogData = { title, tags, formate, isActive };
 
     if (formate === "carousel") {
-      const images = req.files?.map((file) => `Blog/${file.filename}`) || [];
+      const images = req.files?.images?.map((file) => `Blog/${file.filename}`) || [];
 
       if (!content)
         return res
@@ -96,7 +134,7 @@ const createBlog = async (req, res) => {
 
       blogData.images = images;
       blogData.content = content;
-    } else if (["card", "alternative"].includes(formate)) {
+    } else if (["card", "alternative", "center"].includes(formate)) {
       let parsedItems = [];
       if (typeof items === "string") parsedItems = JSON.parse(items);
       else if (Array.isArray(items)) parsedItems = items;
@@ -107,11 +145,32 @@ const createBlog = async (req, res) => {
           .json(
             new ApiError(
               400,
-              "Items array (with image and content) is required for card/alternative format"
+              "Items array (with image and content) is required for card/alternative/center format"
             )
           );
 
-      blogData.items = parsedItems;
+      // Process item images
+      const itemImageFiles = req.files?.itemImages || [];
+      
+      // Map item images to their respective items
+      const updatedItems = parsedItems.map((item, index) => {
+        // Check if there's a new image file for this item
+        if (itemImageFiles[index]) {
+          return {
+            ...item,
+            image: `Blog/${itemImageFiles[index].filename}`
+          };
+        }
+        
+        // If no new image was uploaded, keep the existing image path or use placeholder
+        // But don't save "new_upload" placeholder - use actual placeholder
+        return {
+          ...item,
+          image: item.image === "new_upload" ? "placeholder.jpg" : (item.image || "placeholder.jpg")
+        };
+      });
+
+      blogData.items = updatedItems;
     }
 
     const blog = await Blog.create(blogData);
@@ -122,6 +181,11 @@ const createBlog = async (req, res) => {
         blog.images && blog.images.length
           ? blog.images.map((img) => `${baseUrl}/${img}`)
           : [],
+      // Add image URLs for items if they exist
+      items: blog.items ? blog.items.map(item => ({
+        ...item,
+        imageUrl: item.image ? `${baseUrl}/${item.image}` : null
+      })) : []
     };
     return res
       .status(201)
@@ -147,19 +211,56 @@ const updateBlog = async (req, res) => {
     if (title !== undefined) blog.title = title;
     if (tags !== undefined) blog.tags = tags;
     if (formate !== undefined) blog.formate = formate;
-    if (isActive !== undefined) blog.isActive = isActive; // <-- update
+    if (isActive !== undefined) blog.isActive = isActive;
 
     if (formate === "carousel") {
-      const images = req.files ? req.files.map((file) => `Blog/${file.filename}`) : [];
-      if (images.length > 0) blog.images = images;
+      // Handle removed existing images
+      const removedImages = req.body.removedImages;
+      if (removedImages && Array.isArray(removedImages)) {
+        // Filter out removed images from the existing images array
+        blog.images = blog.images.filter(img => !removedImages.includes(img));
+      }
+      
+      // Handle new images
+      const images = req.files?.images?.map((file) => `Blog/${file.filename}`) || [];
+      if (images.length > 0) {
+        // Add new images to existing ones
+        blog.images = [...blog.images, ...images];
+      }
+      
       if (content !== undefined) blog.content = content;
       blog.items = [];
-    } else if (["card", "alternative"].includes(formate)) {
-      let parsedItems = [];
-      if (typeof items === "string") parsedItems = JSON.parse(items);
-      else if (Array.isArray(items)) parsedItems = items;
+    } else if (["card", "alternative", "center"].includes(formate)) {
+      // Only process items if they were provided
+      if (items !== undefined) {
+        let parsedItems = [];
+        if (typeof items === "string") parsedItems = JSON.parse(items);
+        else if (Array.isArray(items)) parsedItems = items;
 
-      if (parsedItems.length > 0) blog.items = parsedItems;
+        // Process item images
+        const itemImageFiles = req.files?.itemImages || [];
+        
+        // Map item images to their respective items
+        const updatedItems = parsedItems.map((item, index) => {
+          // Check if there's a new image file for this item
+          if (itemImageFiles[index]) {
+            return {
+              ...item,
+              image: `Blog/${itemImageFiles[index].filename}`
+            };
+          }
+          
+          // If no new image was uploaded, keep the existing image or the old one
+          // But don't save "new_upload" placeholder - use actual placeholder
+          return {
+            ...item,
+            image: item.image === "new_upload" ? "placeholder.jpg" : (item.image || (blog.items[index] ? blog.items[index].image : "placeholder.jpg"))
+          };
+        });
+
+        if (updatedItems.length > 0) blog.items = updatedItems;
+      }
+      
       blog.images = [];
       blog.content = "";
     }
@@ -172,6 +273,11 @@ const updateBlog = async (req, res) => {
         blog.images && blog.images.length
           ? blog.images.map((img) => `${baseUrl}/${img}`)
           : [],
+      // Add image URLs for items if they exist
+      items: blog.items ? blog.items.map(item => ({
+        ...item,
+        imageUrl: item.image ? `${baseUrl}/${item.image}` : null
+      })) : []
     };
     return res
       .status(200)

@@ -13,7 +13,7 @@ const BlogSchema = new mongoose.Schema(
     title: { type: String, trim: true, required: true },
     formate: {
       type: String,
-      enum: ["carousel", "card", "alternative"],
+      enum: ["carousel", "card", "alternative", "center"],
       required: true,
       trim: true,
     },
@@ -48,13 +48,13 @@ const BlogSchema = new mongoose.Schema(
       default: [],
       validate: {
         validator: function (v) {
-          if (["card", "alternative"].includes(this.formate)) {
+          if (["card", "alternative", "center"].includes(this.formate)) {
             return Array.isArray(v) && v.every((i) => i.image && i.content);
           }
           return true;
         },
         message:
-          "For card/alternative, items must be an array of { image, content } objects",
+          "For card/alternative/center, items must be an array of { image, content } objects",
       },
     },
     tags: [{ type: String, trim: true }],
@@ -66,7 +66,7 @@ const BlogSchema = new mongoose.Schema(
 BlogSchema.pre("save", function (next) {
   if (this.formate === "carousel") {
     this.items = [];
-  } else if (["card", "alternative"].includes(this.formate)) {
+  } else if (["card", "alternative", "center"].includes(this.formate)) {
     this.images = [];
     this.content = "";
   }

@@ -32,13 +32,33 @@ const blogStorage = multer.diskStorage({
   },
 });
 
+// Configure multer to accept both "images" and "itemImages" fields
 const uploadBlogImages = multer({ storage: blogStorage });
+
+// Middleware to handle multiple file fields
+const uploadBlogFiles = (req, res, next) => {
+  const multerMiddleware = uploadBlogImages.fields([
+    { name: 'images', maxCount: 10 },
+    { name: 'itemImages', maxCount: 20 } // Allow up to 20 item images
+  ]);
+  
+  multerMiddleware(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+        return res.status(400).json({ error: 'Too many files uploaded' });
+      }
+    } else if (err) {
+      return res.status(500).json({ error: 'File upload error' });
+    }
+    next();
+  });
+};
 
 // Routes
 BlogRoute.get("/", getAllBlogs);
 BlogRoute.get("/:id", getBlogById);
-BlogRoute.post("/", uploadBlogImages.array("images", 5), createBlog);
-BlogRoute.patch("/:id", uploadBlogImages.array("images", 5), updateBlog);
+BlogRoute.post("/", uploadBlogFiles, createBlog);
+BlogRoute.patch("/:id", uploadBlogFiles, updateBlog);
 BlogRoute.delete("/:id", deleteBlog);
 
 module.exports = BlogRoute;
