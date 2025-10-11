@@ -214,20 +214,8 @@ const updateBlog = async (req, res) => {
     if (isActive !== undefined) blog.isActive = isActive;
 
     if (formate === "carousel") {
-      // Handle removed existing images
-      const removedImages = req.body.removedImages;
-      if (removedImages && Array.isArray(removedImages)) {
-        // Filter out removed images from the existing images array
-        blog.images = blog.images.filter(img => !removedImages.includes(img));
-      }
-      
-      // Handle new images
       const images = req.files?.images?.map((file) => `Blog/${file.filename}`) || [];
-      if (images.length > 0) {
-        // Add new images to existing ones
-        blog.images = [...blog.images, ...images];
-      }
-      
+      if (images.length > 0) blog.images = images;
       if (content !== undefined) blog.content = content;
       blog.items = [];
     } else if (["card", "alternative", "center"].includes(formate)) {

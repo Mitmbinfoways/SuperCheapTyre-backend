@@ -19,7 +19,8 @@
     "mongoose": "^8.18.1",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.6",
-    "path": "^0.12.7"
+    "path": "^0.12.7",
+    "stripe": "^19.1.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

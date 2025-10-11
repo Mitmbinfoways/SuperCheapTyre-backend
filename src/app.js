@@ -12,6 +12,7 @@ const ContactRoute = require("./Routes/Contact.route");
 const OrderRoute = require("./Routes/Order.route");
 const BlogRoute = require("./Routes/Blog.route");
 const BrandRoute = require("./Routes/Brand.route");
+const PaymentRoute = require("./Routes/Payment.route");
 
 app.use(
   cors({
@@ -36,5 +37,6 @@ app.use("/api/v1/contact", ContactRoute);
 app.use("/api/v1/order", OrderRoute);
 app.use("/api/v1/blog", BlogRoute);
 app.use("/api/v1/brand", BrandRoute);
+app.use("/api/payment", PaymentRoute);
 
 module.exports = app;
