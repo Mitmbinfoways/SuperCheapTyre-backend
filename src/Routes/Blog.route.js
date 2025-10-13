@@ -39,7 +39,7 @@ const uploadBlogImages = multer({ storage: blogStorage });
 const uploadBlogFiles = (req, res, next) => {
   const multerMiddleware = uploadBlogImages.fields([
     { name: 'images', maxCount: 10 },
-    { name: 'itemImages', maxCount: 20 } // Allow up to 20 item images
+    { name: 'itemImages', maxCount: 20 }
   ]);
   
   multerMiddleware(req, res, (err) => {
