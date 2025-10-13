@@ -106,11 +106,7 @@ const getAvailableSlots = async (req, res) => {
     return res
       .status(200)
       .json(
-        new ApiResponse(
-          200,
-          { date: queryDate.toISOString().split("T")[0], slots },
-          "Slots retrieved successfully"
-        )
+        new ApiResponse(200, { date, slots }, "Slots retrieved successfully")
       );
   } catch (error) {
     console.error("Error in getAvailableSlots:", error);

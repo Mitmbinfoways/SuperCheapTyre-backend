@@ -6,7 +6,6 @@ const {
   getAllProducts,
   CreateProduct,
   DeleteProduct,
-  BestSellerProduct,
   DashboardCount,
   UpdateProduct,
   getProductById,
@@ -27,7 +26,6 @@ const productStorage = multer.diskStorage({
 
 const uploadProductImages = multer({ storage: productStorage });
 
-ProductRoute.get("/bestSeller", BestSellerProduct);
 ProductRoute.get("/dashboard" ,DashboardCount)
 ProductRoute.get("/homedata" ,HomeData)
 ProductRoute.get("/", getAllProducts);

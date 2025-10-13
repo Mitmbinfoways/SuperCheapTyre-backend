@@ -26,6 +26,7 @@ const productSchema = new mongoose.Schema(
       staggeredOptions: { type: String, trim: true },
     },
     isActive: { type: Boolean, default: true },
+    isPopular: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

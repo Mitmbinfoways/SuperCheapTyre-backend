@@ -17,6 +17,7 @@ const getAllProducts = async (req, res) => {
       category,
       brand,
       isActive,
+      isPopular,
       minPrice,
       maxPrice,
       pattern,
@@ -40,7 +41,8 @@ const getAllProducts = async (req, res) => {
     if (brand) filter.brand = { $regex: brand, $options: "i" };
     if (category) filter.category = category;
     if (typeof isActive !== "undefined") filter.isActive = isActive === "true";
-
+    if (typeof isPopular !== "undefined")
+      filter.isPopular = isPopular === "true";
     if (minPrice || maxPrice) {
       filter.price = {};
       if (minPrice) filter.price.$gte = Number(minPrice);
@@ -86,7 +88,7 @@ const getAllProducts = async (req, res) => {
       const searchRegex = { $regex: search, $options: "i" };
       filter.$or = [
         { name: searchRegex },
-        { SKUname: searchRegex },
+        { sku: searchRegex },
         { brand: searchRegex },
         { category: searchRegex },
         { "tyreSpecifications.pattern": searchRegex },
@@ -156,6 +158,7 @@ const CreateProduct = async (req, res) => {
       tyreSpecifications = {},
       wheelSpecifications = {},
       isActive,
+      isPopular,
     } = req.body;
 
     if (
@@ -247,6 +250,7 @@ const CreateProduct = async (req, res) => {
       tyreSpecifications: finalTyreSpecs,
       wheelSpecifications: finalWheelSpecs,
       isActive,
+      isPopular,
     });
 
     return res
@@ -331,12 +335,13 @@ const UpdateProduct = async (req, res) => {
       category,
       brand,
       description,
-      images, // list of images to keep
+      images,
       price,
       stock,
       tyreSpecifications,
       wheelSpecifications,
       isActive,
+      isPopular,
       sku,
     } = req.body;
 
@@ -347,6 +352,8 @@ const UpdateProduct = async (req, res) => {
     if (typeof sku !== "undefined") existing.sku = sku;
     if (typeof isActive !== "undefined")
       existing.isActive = isActive === true || isActive === "true";
+    if (typeof isPopular !== "undefined")
+      existing.isPopular = isPopular === true || isPopular === "true";
 
     if (typeof price !== "undefined") {
       const priceNumber = typeof price === "string" ? Number(price) : price;
@@ -467,14 +474,6 @@ const UpdateProduct = async (req, res) => {
   }
 };
 
-const BestSellerProduct = async () => {
-  try {
-  } catch (error) {
-    console.log(error);
-    return res.status(500).json(new ApiError(500, "Internal Server Error"));
-  }
-};
-
 const DashboardCount = async (req, res) => {
   try {
     const [
@@ -540,8 +539,13 @@ const HomeData = async (req, res) => {
     );
 
     const randomProducts = await Product.aggregate([{ $sample: { size: 10 } }]);
-    
+
     const newArrivals = await Product.find({}).sort({ createdAt: -1 }).limit(1);
+
+    const popularProduct = await Product.aggregate([
+      { $match: { isPopular: true } },
+      { $sample: { size: 1 } },
+    ]);
 
     return res.status(200).json(
       new ApiResponse(
@@ -550,6 +554,7 @@ const HomeData = async (req, res) => {
           productData: randomProducts,
           bestSeller: sortedBestSellers,
           newArrival: newArrivals,
+          popularProduct: popularProduct[0] || null,
         },
         "HomeData fetched successfully"
       )
@@ -569,7 +574,6 @@ module.exports = {
   CreateProduct,
   DeleteProduct,
   getProductById,
-  BestSellerProduct,
   DashboardCount,
   UpdateProduct,
   HomeData,
