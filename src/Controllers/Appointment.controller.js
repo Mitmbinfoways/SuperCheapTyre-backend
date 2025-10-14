@@ -13,37 +13,71 @@ const getAllAppointments = async (req, res) => {
     if (date) filter.date = date;
     if (status) filter.status = status;
     if (search) {
+      const searchRegex = { $regex: search, $options: "i" };
       filter.$or = [
-        { firstname: { $regex: search, $options: "i" } },
-        { lastname: { $regex: search, $options: "i" } },
+        { firstname: searchRegex },
+        { lastname: searchRegex },
+        { phone: searchRegex },
+        { email: searchRegex },
+        { notes: searchRegex },
       ];
     }
 
-    let items;
-    let pagination = null;
+    // Pagination setup
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
+    const skip = (pageNumber - 1) * limitNumber;
 
-    if (page && limit) {
-      const pageNumber = parseInt(page, 10);
-      const limitNumber = parseInt(limit, 10);
-      const skip = (pageNumber - 1) * limitNumber;
+    // Fetch appointments with pagination
+    const appointments = await Appointment.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNumber)
+      .lean(); // lean() gives plain JS objects — easier to modify
 
-      items = await Appointment.find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limitNumber);
+    // Collect all timeSlotIds for bulk lookup
+    const timeSlotIds = [...new Set(appointments.map((a) => a.timeSlotId))];
+    const timeSlots = await TimeSlot.find({ _id: { $in: timeSlotIds } }).lean();
 
-      const totalItems = await Appointment.countDocuments(filter);
-      const totalPages = Math.ceil(totalItems / limitNumber);
-
-      pagination = {
-        totalItems,
-        totalPages,
-        currentPage: pageNumber,
-        pageSize: limitNumber,
-      };
-    } else {
-      items = await Appointment.find(filter).sort({ createdAt: -1 });
+    // Map TimeSlot IDs for quick access
+    const timeSlotMap = {};
+    for (const ts of timeSlots) {
+      timeSlotMap[ts._id.toString()] = ts;
     }
+
+    // Merge slot time info into each appointment
+    const items = appointments.map((app) => {
+      const timeSlot = timeSlotMap[app.timeSlotId?.toString()];
+      let slotDetails = null;
+
+      if (timeSlot && timeSlot.generatedSlots?.length > 0) {
+        slotDetails = timeSlot.generatedSlots.find(
+          (s) => s.slotId === app.slotId
+        );
+      }
+
+      return {
+        ...app,
+        slotDetails: slotDetails
+          ? {
+              startTime: slotDetails.startTime,
+              endTime: slotDetails.endTime,
+              isBreak: slotDetails.isBreak,
+            }
+          : null,
+      };
+    });
+
+    // Pagination metadata
+    const totalItems = await Appointment.countDocuments(filter);
+    const totalPages = Math.ceil(totalItems / limitNumber);
+
+    const pagination = {
+      totalItems,
+      totalPages,
+      currentPage: pageNumber,
+      pageSize: limitNumber,
+    };
 
     return res
       .status(200)
@@ -55,7 +89,7 @@ const getAllAppointments = async (req, res) => {
         )
       );
   } catch (error) {
-    console.error(error);
+    console.error("Error fetching appointments:", error);
     return res.status(500).json(new ApiError(500, "Internal Server Error"));
   }
 };
@@ -137,9 +171,9 @@ const createAppointment = async (req, res) => {
 
     // Normalize date - handle both string formats and Date objects
     let appointmentDate;
-    if (typeof date === 'string') {
+    if (typeof date === "string") {
       // Handle different date formats
-      if (date.includes('GMT') || date.includes('UTC')) {
+      if (date.includes("GMT") || date.includes("UTC")) {
         // Already a full date string
         appointmentDate = new Date(date);
       } else if (date.match(/^\d{4}-\d{2}-\d{2}$/)) {
@@ -152,16 +186,12 @@ const createAppointment = async (req, res) => {
     } else if (date instanceof Date) {
       appointmentDate = date;
     } else {
-      return res
-        .status(400)
-        .json(new ApiError(400, "Invalid date format"));
+      return res.status(400).json(new ApiError(400, "Invalid date format"));
     }
 
     // Validate that we have a valid date
     if (isNaN(appointmentDate.getTime())) {
-      return res
-        .status(400)
-        .json(new ApiError(400, "Invalid date value"));
+      return res.status(400).json(new ApiError(400, "Invalid date value"));
     }
 
     // Set to start of day to avoid timezone issues
@@ -257,9 +287,9 @@ const updateAppointment = async (req, res) => {
     if (date) {
       // Normalize date - handle both string formats and Date objects
       let parsedDate;
-      if (typeof date === 'string') {
+      if (typeof date === "string") {
         // Handle different date formats
-        if (date.includes('GMT') || date.includes('UTC')) {
+        if (date.includes("GMT") || date.includes("UTC")) {
           // Already a full date string
           parsedDate = new Date(date);
         } else if (date.match(/^\d{4}-\d{2}-\d{2}$/)) {

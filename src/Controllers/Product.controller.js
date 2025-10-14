@@ -37,6 +37,8 @@ const getAllProducts = async (req, res) => {
 
     const filter = {};
 
+    filter.isDelete = false;
+
     if (name) filter.name = { $regex: name, $options: "i" };
     if (brand) filter.brand = { $regex: brand, $options: "i" };
     if (category) filter.category = category;
@@ -290,30 +292,28 @@ const DeleteProduct = async (req, res) => {
       return res.status(400).json(new ApiError(400, "Product id is required"));
     }
 
-    const deleted = await Product.findByIdAndDelete(id);
-    if (!deleted) {
+    // Find the product
+    const product = await Product.findById(id);
+    if (!product) {
       return res.status(404).json(new ApiError(404, "Product not found"));
     }
 
-    const images = Array.isArray(deleted.images) ? deleted.images : [];
-    if (images.length > 0) {
-      const deletions = images.map(async (filename) => {
-        if (!filename) return;
-        const filePath = path.join(__dirname, "../../public/Product", filename);
-        try {
-          await fs.promises.unlink(filePath);
-        } catch (err) {
-          console.log(err);
-        }
-      });
-      await Promise.all(deletions);
+    // Check if already deleted
+    if (product.isDelete) {
+      return res.status(400).json(new ApiError(400, "Product already deleted"));
     }
+
+    // Soft delete - only set isDelete = true
+    product.isDelete = true;
+    await product.save();
 
     return res
       .status(200)
-      .json(new ApiResponse(200, deleted, "Product deleted successfully"));
+      .json(
+        new ApiResponse(200, product, "Product marked as deleted successfully")
+      );
   } catch (error) {
-    console.log(error);
+    console.error("DeleteProduct Error:", error);
     return res.status(500).json(new ApiError(500, "Internal Server Error"));
   }
 };
