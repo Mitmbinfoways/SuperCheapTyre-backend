@@ -569,12 +569,189 @@ const HomeData = async (req, res) => {
   }
 };
 
+const getSimilarProducts = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { limit = 8 } = req.query;
+
+    const currentProduct = await Product.findById(id);
+
+    if (!currentProduct) {
+      return res.status(404).json(new ApiError(404, "Product not found"));
+    }
+
+    const similarityQuery = {
+      _id: { $ne: id },
+      isActive: true,
+      $or: [],
+    };
+
+    if (currentProduct.category && currentProduct.brand) {
+      similarityQuery.$or.push({
+        category: currentProduct.category,
+        brand: currentProduct.brand,
+      });
+    }
+
+    if (
+      currentProduct.category === "Tyres" &&
+      currentProduct.tyreSpecifications
+    ) {
+      const tyreSpec = currentProduct.tyreSpecifications;
+
+      if (tyreSpec.width || tyreSpec.profile || tyreSpec.diameter) {
+        similarityQuery.$or.push({
+          category: "Tyres",
+          $or: [
+            { "tyreSpecifications.width": tyreSpec.width },
+            { "tyreSpecifications.profile": tyreSpec.profile },
+            { "tyreSpecifications.diameter": tyreSpec.diameter },
+          ],
+        });
+      }
+    }
+
+    if (
+      currentProduct.category === "Wheels" &&
+      currentProduct.wheelSpecifications
+    ) {
+      const wheelSpec = currentProduct.wheelSpecifications;
+
+      if (wheelSpec.size || wheelSpec.diameter) {
+        similarityQuery.$or.push({
+          category: "Wheels",
+          $or: [
+            { "wheelSpecifications.size": wheelSpec.size },
+            { "wheelSpecifications.diameter": wheelSpec.diameter },
+          ],
+        });
+      }
+    }
+
+    similarityQuery.$or.push({
+      category: currentProduct.category,
+    });
+
+    if (currentProduct.brand) {
+      similarityQuery.$or.push({
+        brand: currentProduct.brand,
+      });
+    }
+
+    let similarProducts = await Product.find(similarityQuery)
+      .select(
+        "name category brand price images sku stock isPopular tyreSpecifications wheelSpecifications"
+      )
+      .limit(parseInt(limit))
+      .lean();
+
+    similarProducts = similarProducts.map((product) => {
+      let score = 0;
+
+      if (
+        product.category === currentProduct.category &&
+        product.brand === currentProduct.brand
+      ) {
+        score += 10;
+      }
+
+      if (product.category === currentProduct.category) {
+        score += 5;
+      }
+
+      if (product.brand === currentProduct.brand) {
+        score += 3;
+      }
+
+      const priceDiff = Math.abs(product.price - currentProduct.price);
+      const pricePercentDiff = (priceDiff / currentProduct.price) * 100;
+      if (pricePercentDiff <= 20) {
+        score += 2;
+      }
+
+      if (currentProduct.category === "Tyres" && product.category === "Tyres") {
+        if (
+          product.tyreSpecifications?.width ===
+          currentProduct.tyreSpecifications?.width
+        )
+          score += 4;
+        if (
+          product.tyreSpecifications?.profile ===
+          currentProduct.tyreSpecifications?.profile
+        )
+          score += 3;
+        if (
+          product.tyreSpecifications?.diameter ===
+          currentProduct.tyreSpecifications?.diameter
+        )
+          score += 4;
+        if (
+          product.tyreSpecifications?.speedRating ===
+          currentProduct.tyreSpecifications?.speedRating
+        )
+          score += 2;
+      }
+
+      if (
+        currentProduct.category === "Wheels" &&
+        product.category === "Wheels"
+      ) {
+        if (
+          product.wheelSpecifications?.size ===
+          currentProduct.wheelSpecifications?.size
+        )
+          score += 4;
+        if (
+          product.wheelSpecifications?.diameter ===
+          currentProduct.wheelSpecifications?.diameter
+        )
+          score += 4;
+        if (
+          product.wheelSpecifications?.color ===
+          currentProduct.wheelSpecifications?.color
+        )
+          score += 2;
+      }
+
+      if (product.isPopular) {
+        score += 1;
+      }
+
+      return { ...product, similarityScore: score };
+    });
+
+    similarProducts.sort((a, b) => b.similarityScore - a.similarityScore);
+
+    similarProducts = similarProducts.map(
+      ({ similarityScore, ...product }) => product
+    );
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          similarProducts,
+          "Similar Product Fetch successFully"
+        )
+      );
+  } catch (error) {
+    console.error("Error fetching similar products:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching similar products",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getAllProducts,
   CreateProduct,
   DeleteProduct,
   getProductById,
   DashboardCount,
+  getSimilarProducts,
   UpdateProduct,
   HomeData,
 };

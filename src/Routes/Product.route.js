@@ -10,6 +10,7 @@ const {
   UpdateProduct,
   getProductById,
   HomeData,
+  getSimilarProducts,
 } = require("../Controllers/Product.controller");
 
 // Multer setup for product images
@@ -30,6 +31,7 @@ ProductRoute.get("/dashboard" ,DashboardCount)
 ProductRoute.get("/homedata" ,HomeData)
 ProductRoute.get("/", getAllProducts);
 ProductRoute.get("/:id", getProductById);
+ProductRoute.get("/:id/similar", getSimilarProducts);
 ProductRoute.post("/", uploadProductImages.array("images", 5), CreateProduct);
 ProductRoute.patch("/:id", uploadProductImages.array("images", 5), UpdateProduct);
 ProductRoute.delete("/:id", DeleteProduct);
