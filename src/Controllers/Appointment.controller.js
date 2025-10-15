@@ -2,13 +2,12 @@ const ApiResponse = require("../Utils/ApiResponse");
 const ApiError = require("../Utils/ApiError");
 const Appointment = require("../Models/Appointment.model");
 const TimeSlot = require("../Models/TimeSlot.model");
+const Technician = require("../Models/Technician.model");
 
-// GET /appointments
 const getAllAppointments = async (req, res) => {
   try {
     const { date, status, search, page = 1, limit = 10 } = req.query;
 
-    // Build filter dynamically
     const filter = {};
     if (date) filter.date = date;
     if (status) filter.status = status;
@@ -23,29 +22,41 @@ const getAllAppointments = async (req, res) => {
       ];
     }
 
-    // Pagination setup
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
     const skip = (pageNumber - 1) * limitNumber;
 
-    // Fetch appointments with pagination
     const appointments = await Appointment.find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limitNumber)
-      .lean(); // lean() gives plain JS objects — easier to modify
+      .lean();
 
-    // Collect all timeSlotIds for bulk lookup
+    const technicianIds = [
+      ...new Set(
+        appointments.map((a) => a.Employee).filter((id) => !!id)
+      ),
+    ];
+
+    const technicians = await Technician.find({
+      _id: { $in: technicianIds },
+    })
+      .select("firstName lastName email phone isActive isDelete")
+      .lean();
+
+    const technicianMap = {};
+    for (const tech of technicians) {
+      technicianMap[tech._id.toString()] = tech;
+    }
+
     const timeSlotIds = [...new Set(appointments.map((a) => a.timeSlotId))];
     const timeSlots = await TimeSlot.find({ _id: { $in: timeSlotIds } }).lean();
 
-    // Map TimeSlot IDs for quick access
     const timeSlotMap = {};
     for (const ts of timeSlots) {
       timeSlotMap[ts._id.toString()] = ts;
     }
 
-    // Merge slot time info into each appointment
     const items = appointments.map((app) => {
       const timeSlot = timeSlotMap[app.timeSlotId?.toString()];
       let slotDetails = null;
@@ -56,8 +67,19 @@ const getAllAppointments = async (req, res) => {
         );
       }
 
+      const technician = technicianMap[app.Employee?.toString()] || null;
+
       return {
         ...app,
+        technicianDetails: technician
+          ? {
+              firstName: technician.firstName,
+              lastName: technician.lastName,
+              email: technician.email,
+              phone: technician.phone,
+              isActive: technician.isActive,
+            }
+          : null,
         slotDetails: slotDetails
           ? {
               startTime: slotDetails.startTime,
@@ -68,7 +90,6 @@ const getAllAppointments = async (req, res) => {
       };
     });
 
-    // Pagination metadata
     const totalItems = await Appointment.countDocuments(filter);
     const totalPages = Math.ceil(totalItems / limitNumber);
 

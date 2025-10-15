@@ -108,6 +108,10 @@ const createOrder = async (req, res) => {
       !appointment ||
       !appointment.date ||
       !appointment.slotId ||
+      !appointment.firstName ||
+      !appointment.lastName ||
+      !appointment.phone ||
+      !appointment.email ||
       !appointment.timeSlotId
     ) {
       return res
@@ -116,7 +120,7 @@ const createOrder = async (req, res) => {
           new ApiError(
             400,
             null,
-            "Appointment with date, slotId, and timeSlotId is required"
+            "Appointment with date, slotId, firstName, lastName, phone, email,  and timeSlotId is required"
           )
         );
     }

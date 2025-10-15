@@ -46,7 +46,8 @@ const getAllTechnician = async (req, res) => {
   try {
     const { search, page, limit } = req.query;
     const filter = {};
-
+    
+    filter.isDelete = false;
     if (search && search.trim() !== "") {
       filter.$or = [
         { firstName: { $regex: search, $options: "i" } },
@@ -99,19 +100,24 @@ const getAllTechnician = async (req, res) => {
 
 const deleteTechnician = async (req, res) => {
   try {
-    if (!mongoose.isValidObjectId(req.params.id)) {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
       return res.status(400).json(new ApiError(400, "Invalid ID format"));
     }
 
-    const technician = await TechnicianModel.findById(req.params.id);
+    const technician = await TechnicianModel.findById(id);
     if (!technician) {
       return res.status(404).json(new ApiError(404, "Technician not found"));
     }
+    technician.isDelete = true;
+    await technician.save();
 
-    await TechnicianModel.deleteOne({ _id: req.params.id });
     res
       .status(200)
-      .json(new ApiResponse(200, null, "Technician deleted successfully"));
+      .json(
+        new ApiResponse(200, technician, "Technician soft deleted successfully")
+      );
   } catch (error) {
     res.status(500).json(new ApiError(500, error.message || "Server error"));
   }
