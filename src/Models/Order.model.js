@@ -2,6 +2,12 @@ const mongoose = require("mongoose");
 
 const orderItemSchema = new mongoose.Schema({
   id: { type: String, required: true },
+  name: { type: String, required: true },
+  brand: { type: String },
+  sku: { type: String },
+  category: { type: String },
+  image: { type: String, default: "" },
+  price: { type: Number, required: true },
   quantity: { type: Number, required: true },
 });
 
@@ -26,6 +32,7 @@ const appointmentSchema = new mongoose.Schema({
   phone: { type: String, required: true },
   email: { type: String, required: true },
   date: { type: String, required: true },
+  time: { type: String, required: true },
   slotId: { type: String, required: true },
   timeSlotId: { type: String, required: true },
 });

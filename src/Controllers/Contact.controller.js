@@ -67,6 +67,37 @@ const createContact = async (req, res) => {
       phone,
     });
 
+    const userEmailSubject = "Thank you for contacting us!";
+    const userEmailHtml = `
+      <h2>Hello ${name},</h2>
+      <p>Thank you for reaching out to us. We have received your message and will get back to you soon.</p>
+      <p><strong>Your Message:</strong></p>
+      <p>${message || "No message provided"}</p>
+      <br>
+      <p>Best regards,<br>Your App Team</p>
+    `;
+
+    const adminEmailSubject = "New Contact Form Submission";
+    const adminEmailHtml = `
+      <h2>New Contact Received</h2>
+      <p><strong>Name:</strong> ${name}</p>
+      <p><strong>Email:</strong> ${email}</p>
+      <p><strong>Phone:</strong> ${phone || "Not provided"}</p>
+      <p><strong>Message:</strong></p>
+      <p>${message || "No message provided"}</p>
+    `;
+
+    Promise.all([
+      sendMail(email, userEmailSubject, userEmailHtml),
+      sendMail(
+        process.env.ADMIN_EMAIL || process.env.SMTP_USER,
+        adminEmailSubject,
+        adminEmailHtml
+      ),
+    ]).catch((error) => {
+      console.error("Email sending failed:", error);
+    });
+
     return res
       .status(201)
       .json(new ApiResponse(201, newContact, "Contact created successfully"));
