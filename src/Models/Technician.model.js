@@ -26,6 +26,9 @@ const technicianSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    isDelete: {
+      type: Boolean,
+    },
   },
   { timestamps: true }
 );
