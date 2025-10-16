@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const ApiResponse = require("../Utils/ApiResponse");
 const ApiError = require("../Utils/ApiError");
 const ContactModel = require("../Models/Contact.model");
+const sendMail = require("../Utils/Nodemailer");
 
 const getAllContacts = async (req, res) => {
   try {
@@ -67,15 +68,15 @@ const createContact = async (req, res) => {
       phone,
     });
 
-    const userEmailSubject = "Thank you for contacting us!";
-    const userEmailHtml = `
-      <h2>Hello ${name},</h2>
-      <p>Thank you for reaching out to us. We have received your message and will get back to you soon.</p>
-      <p><strong>Your Message:</strong></p>
-      <p>${message || "No message provided"}</p>
-      <br>
-      <p>Best regards,<br>Your App Team</p>
-    `;
+    // const userEmailSubject = "Thank you for contacting us!";
+    // const userEmailHtml = `
+    //   <h2>Hello ${name},</h2>
+    //   <p>Thank you for reaching out to us. We have received your message and will get back to you soon.</p>
+    //   <p><strong>Your Message:</strong></p>
+    //   <p>${message || "No message provided"}</p>
+    //   <br>
+    //   <p>Best regards,<br>Your App Team</p>
+    // `;
 
     const adminEmailSubject = "New Contact Form Submission";
     const adminEmailHtml = `
@@ -88,7 +89,7 @@ const createContact = async (req, res) => {
     `;
 
     Promise.all([
-      sendMail(email, userEmailSubject, userEmailHtml),
+      // sendMail(email, userEmailSubject, userEmailHtml),
       sendMail(
         process.env.ADMIN_EMAIL || process.env.SMTP_USER,
         adminEmailSubject,
