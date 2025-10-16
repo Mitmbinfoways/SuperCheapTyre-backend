@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 const Order = require("../Models/Order.model");
 const Product = require("../Models/Product.model");
+const Appointment = require("../Models/Appointment.model");
+const TimeSlot= require("../Models/TimeSlot.model");
 const ApiResponse = require("../Utils/ApiResponse");
 const ApiError = require("../Utils/ApiError");
 const sendMail = require("../Utils/Nodemailer");
@@ -99,7 +101,7 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
               <span style="color: #666; font-size: 12px;">
                 ${product.brand || "Unknown Brand"} | ${product.sku || "N/A"}
               </span><br>
-              <span style="color: #4CAF50; font-weight: bold;">£${price.toFixed(
+              <span style="color: #4CAF50; font-weight: bold;">$${price.toFixed(
                 2
               )}</span>
             </div>
@@ -108,7 +110,7 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
             ${quantity}
           </td>
           <td style="padding: 12px; border-bottom: 1px solid #e0e0e0; text-align: right;">
-            £${(price * quantity).toFixed(2)}
+            $${(price * quantity).toFixed(2)}
           </td>
         </tr>
       `;
@@ -117,6 +119,18 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
 
   const formattedSubtotal = Number(subtotal).toFixed(2);
   const formattedTotal = Number(total).toFixed(2);
+
+  // Format date properly
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-GB', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  };
 
   return `
     <!DOCTYPE html>
@@ -165,7 +179,7 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
                   <table width="100%" cellpadding="8" cellspacing="0">
                     ${
                       appointment.date
-                        ? `<tr><td style="color:#666;font-size:14px;width:40%;"><strong>Date:</strong></td><td>${appointment.date}</td></tr>`
+                        ? `<tr><td style="color:#666;font-size:14px;width:40%;"><strong>Date:</strong></td><td>${formatDate(appointment.date)}</td></tr>`
                         : ""
                     }
                     ${
@@ -175,12 +189,7 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
                     }
                     ${
                       appointment.phone
-                        ? `<tr><td style="color:#666;font-size:14px;"><strong>Phone:</strong></td><td>${appointment.phone}</td></tr>`
-                        : ""
-                    }
-                    ${
-                      appointment.email
-                        ? `<tr><td style="color:#666;font-size:14px;"><strong>Email:</strong></td><td>${appointment.email}</td></tr>`
+                        ? `<tr><td style="color:#666;font-size:14px;"><strong>Phone:</strong></td><td>+${appointment.phone}</td></tr>`
                         : ""
                     }
                   </table>
@@ -214,14 +223,14 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
                   <table width="100%" cellpadding="8" cellspacing="0" style="border: 1px solid #e0e0e0; border-radius: 4px; background-color: #f9f9f9;">
                     <tr>
                       <td style="text-align: right; color: #666;"><strong>Subtotal:</strong></td>
-                      <td style="text-align: right; color: #333;">£${formattedSubtotal}</td>
+                      <td style="text-align: right; color: #333;">$${formattedSubtotal}</td>
                     </tr>
                     <tr>
                       <td style="text-align: right; color: #666; border-top: 2px solid #4CAF50; padding-top: 10px;">
                         <strong>Total:</strong>
                       </td>
                       <td style="text-align: right; color: #4CAF50; font-size: 18px; font-weight: bold; border-top: 2px solid #4CAF50; padding-top: 10px;">
-                        £${formattedTotal}
+                        $${formattedTotal}
                       </td>
                     </tr>
                   </table>
@@ -270,7 +279,8 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
 
 const createOrder = async (req, res) => {
   try {
-    const { items, subtotal, total, appointment, customer, payment } = req.body;
+    const { items, subtotal, total, appointmentId, customer, payment } =
+      req.body;
 
     if (!items || !Array.isArray(items) || !items.length) {
       return res
@@ -283,11 +293,7 @@ const createOrder = async (req, res) => {
         return res
           .status(400)
           .json(
-            new ApiError(
-              400,
-              null,
-              "Each item must have a valid id and quantity"
-            )
+            new ApiError(400, "Each item must have a valid id and quantity")
           );
       }
     }
@@ -304,39 +310,71 @@ const createOrder = async (req, res) => {
         .json(new ApiError(400, "Total cannot be less than subtotal"));
     }
 
-    if (
-      !appointment ||
-      !appointment.date ||
-      !appointment.slotId ||
-      !appointment.firstName ||
-      !appointment.lastName ||
-      !appointment.phone ||
-      !appointment.email ||
-      !appointment.timeSlotId
-    ) {
+    // Validate appointmentId
+    if (!appointmentId || !mongoose.isValidObjectId(appointmentId)) {
       return res
         .status(400)
-        .json(
-          new ApiError(
-            400,
-            null,
-            "Appointment with date, slotId, firstName, lastName, phone, email, and timeSlotId is required"
-          )
+        .json(new ApiError(400, "Valid appointmentId is required"));
+    }
+
+    // Fetch appointment
+    const appointment = await Appointment.findById(appointmentId).lean();
+    if (!appointment) {
+      return res.status(404).json(new ApiError(404, "Appointment not found"));
+    }
+
+    console.log(appointment)
+
+    // Fetch time slot information if slotId exists
+    let slotInfo = null;
+    if (appointment.slotId) {
+      const timeSlotDoc = await TimeSlot.findOne({
+        "generatedSlots.slotId": appointment.slotId,
+      }).lean();
+
+      if (timeSlotDoc) {
+        const matchedSlot = timeSlotDoc.generatedSlots.find(
+          (s) => s.slotId === appointment.slotId
         );
+        if (matchedSlot) {
+          slotInfo = {
+            startTime: matchedSlot.startTime,
+            endTime: matchedSlot.endTime,
+            isBreak: matchedSlot.isBreak,
+          };
+        }
+      }
     }
 
     if (!customer || !customer.name || !customer.phone) {
       return res
         .status(400)
-        .json(new ApiError(400, "Customer information is required"));
+        .json(new ApiError(400, "Customer name and phone are required"));
     }
 
-    const paymentData = payment || {};
-    if (typeof paymentData.amount !== "number") paymentData.amount = 0;
-    if (!paymentData.method) paymentData.method = "";
-    if (!paymentData.status) paymentData.status = "pending";
+    // Normalize customer email
+    const customerData = {
+      name: customer.name,
+      phone: customer.phone,
+      email: customer.email || "", // Align with schema default
+    };
 
-    // Fetch product details for all items
+    // Validate and normalize payment data
+    const validPaymentMethods = ["card", "cash", "online"]; // Define allowed methods
+    const validPaymentStatuses = ["pending", "completed", "failed"]; // Define allowed statuses
+    const paymentData = {
+      amount: typeof payment?.amount === "number" ? payment.amount : 0,
+      method:
+        payment?.method && validPaymentMethods.includes(payment.method)
+          ? payment.method
+          : "",
+      status:
+        payment?.status && validPaymentStatuses.includes(payment.status)
+          ? payment.status
+          : "pending",
+      currency: payment?.currency || "GBP", // Align with schema default
+    };
+
     const productIds = items.map((item) => item.id);
     const products = await Product.find({
       _id: { $in: productIds },
@@ -356,25 +394,34 @@ const createOrder = async (req, res) => {
         id: item.id,
         quantity: item.quantity,
         name: product.name,
-        brand: product.brand,
-        category: product.category,
+        brand: product.brand || "", // Ensure schema alignment
+        category: product.category || "", // Ensure schema alignment
         price: product.price,
         image:
           product.images && product.images.length > 0 ? product.images[0] : "",
-        sku: product.sku,
+        sku: product.sku || "", // Ensure schema alignment
       };
     });
 
+    // Create order
     const order = await Order.create({
       items: enrichedItems,
       subtotal,
       total,
-      appointment,
-      customer,
+      appointment: {
+        id: appointment._id,
+        firstName: appointment.firstname, // Align with Appointment schema
+        lastName: appointment.lastname, // Align with Appointment schema
+        phone: appointment.phone,
+        email: appointment.email,
+        date: appointment.date,
+        slotId: appointment.slotId,
+        time: slotInfo ? `${slotInfo.startTime}-${slotInfo.endTime}` : "", // Convert to string for schema
+        timeSlotId: appointment.timeSlotId || "", // Ensure schema alignment
+      },
+      customer: customerData,
       payment: paymentData,
     });
-
-    console.log(order);
 
     // Send confirmation email
     try {
@@ -393,7 +440,7 @@ const createOrder = async (req, res) => {
       .status(201)
       .json(new ApiResponse(201, order, "Order created successfully"));
   } catch (error) {
-    console.error(error);
+    console.error("Error creating order:", error);
     return res
       .status(500)
       .json(new ApiError(500, error.message || "Failed to create order"));
@@ -477,11 +524,11 @@ const DownloadPDF = async (req, res) => {
 
       doc.text(item.name, 50, yPosition, { width: 150 });
       doc.text(item.quantity.toString(), 220, yPosition, { width: 50 });
-      doc.text(`£${item.price.toFixed(2)}`, 280, yPosition, {
+      doc.text(`$${item.price.toFixed(2)}`, 280, yPosition, {
         width: 80,
         align: "right",
       });
-      doc.text(`£${itemTotal.toFixed(2)}`, 380, yPosition, {
+      doc.text(`$${itemTotal.toFixed(2)}`, 380, yPosition, {
         width: 80,
         align: "right",
       });
@@ -515,7 +562,7 @@ const DownloadPDF = async (req, res) => {
     yPosition += 15;
     doc.fontSize(10);
     doc.text("Subtotal:", 380, yPosition, { width: 100 });
-    doc.text(`£${order.subtotal.toFixed(2)}`, 480, yPosition, {
+    doc.text(`$${order.subtotal.toFixed(2)}`, 480, yPosition, {
       width: 70,
       align: "right",
     });
@@ -523,7 +570,7 @@ const DownloadPDF = async (req, res) => {
     yPosition += 20;
     doc.fontSize(12).font("Helvetica-Bold");
     doc.text("Total:", 380, yPosition, { width: 100 });
-    doc.text(`£${order.total.toFixed(2)}`, 480, yPosition, {
+    doc.text(`$${order.total.toFixed(2)}`, 480, yPosition, {
       width: 70,
       align: "right",
     });
