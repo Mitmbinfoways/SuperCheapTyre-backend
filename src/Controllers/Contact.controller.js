@@ -76,11 +76,8 @@ const createContact = async (req, res) => {
       <p><strong>Message: ${message || "No message provided"}</strong></p>
     `;
 
-    try {
-      await sendMail(process.env.SMTP_USER, adminEmailSubject, adminEmailHtml);
-    } catch (mailError) {
-      console.error("Email sending failed:", mailError);
-    }
+    console.log(process.env.SMTP_USER)
+    await sendMail(process.env.SMTP_USER, adminEmailSubject, adminEmailHtml);
 
     return res
       .status(201)
