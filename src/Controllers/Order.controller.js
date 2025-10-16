@@ -360,8 +360,8 @@ const createOrder = async (req, res) => {
     };
 
     // Validate and normalize payment data
-    const validPaymentMethods = ["card", "cash", "online"]; // Define allowed methods
-    const validPaymentStatuses = ["pending", "completed", "failed"]; // Define allowed statuses
+    const validPaymentMethods = ["card", "cash", "online"];
+    const validPaymentStatuses = ["pending", "completed", "failed"];
     const paymentData = {
       amount: typeof payment?.amount === "number" ? payment.amount : 0,
       method:
@@ -372,7 +372,7 @@ const createOrder = async (req, res) => {
         payment?.status && validPaymentStatuses.includes(payment.status)
           ? payment.status
           : "pending",
-      currency: payment?.currency || "GBP", // Align with schema default
+      currency: payment?.currency || "AU$",
     };
 
     const productIds = items.map((item) => item.id);
