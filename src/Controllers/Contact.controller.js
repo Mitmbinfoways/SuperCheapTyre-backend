@@ -1,4 +1,3 @@
-const mongoose = require("mongoose");
 const ApiResponse = require("../Utils/ApiResponse");
 const ApiError = require("../Utils/ApiError");
 const ContactModel = require("../Models/Contact.model");
@@ -64,47 +63,39 @@ const createContact = async (req, res) => {
     const newContact = await ContactModel.create({
       name,
       email,
-      message,
-      phone,
+      message: message || "",
+      phone: phone || "",
     });
 
-    // const userEmailSubject = "Thank you for contacting us!";
-    // const userEmailHtml = `
-    //   <h2>Hello ${name},</h2>
-    //   <p>Thank you for reaching out to us. We have received your message and will get back to you soon.</p>
-    //   <p><strong>Your Message:</strong></p>
-    //   <p>${message || "No message provided"}</p>
-    //   <br>
-    //   <p>Best regards,<br>Your App Team</p>
-    // `;
-
-    const adminEmailSubject = "New Contact Form Submission";
+    const adminEmailSubject = "📩 New Contact Form Submission";
     const adminEmailHtml = `
       <h2>New Contact Received</h2>
       <p><strong>Name:</strong> ${name}</p>
       <p><strong>Email:</strong> ${email}</p>
       <p><strong>Phone:</strong> ${phone || "Not provided"}</p>
-      <p><strong>Message:</strong></p>
-      <p>${message || "No message provided"}</p>
+      <p><strong>Message: ${message || "No message provided"}</strong></p>
     `;
 
-    Promise.all([
-      // sendMail(email, userEmailSubject, userEmailHtml),
-      sendMail(
-        process.env.ADMIN_EMAIL || process.env.SMTP_USER,
-        adminEmailSubject,
-        adminEmailHtml
-      ),
-    ]).catch((error) => {
-      console.error("Email sending failed:", error);
-    });
+    try {
+      await sendMail(process.env.SMTP_USER, adminEmailSubject, adminEmailHtml);
+    } catch (mailError) {
+      console.error("Email sending failed:", mailError);
+    }
 
     return res
       .status(201)
-      .json(new ApiResponse(201, newContact, "Contact created successfully"));
+      .json(
+        new ApiResponse(
+          201,
+          newContact,
+          "Contact created and notification sent successfully"
+        )
+      );
   } catch (error) {
-    console.error(error);
-    return res.status(500).json(new ApiError(500, "Internal server error"));
+    console.error("Create contact error:", error);
+    return res
+      .status(500)
+      .json(new ApiError(500, "Internal server error while creating contact"));
   }
 };
 
