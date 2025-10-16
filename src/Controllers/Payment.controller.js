@@ -24,7 +24,7 @@ const payment = async (req, res) => {
             
             return {
                 price_data: {
-                    currency: 'usd',
+                    currency: 'aud',
                     product_data: {
                         name: product.name,
                     },
