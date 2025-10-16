@@ -12,7 +12,7 @@ const sendMail = async (to, subject, htmlContent) => {
     });
 
     const mailOptions = {
-      from: `"Your App Name" <${process.env.SMTP_USER}>`,
+      from: `"SuperCheapTyre" <${process.env.SMTP_USER}>`,
       to,
       subject,
       html: htmlContent,

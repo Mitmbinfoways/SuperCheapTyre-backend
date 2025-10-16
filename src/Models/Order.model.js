@@ -16,7 +16,7 @@ const paymentSchema = new mongoose.Schema({
   status: { type: String, default: "pending" },
   transactionId: { type: String, default: "" },
   amount: { type: Number, default: 0 },
-  currency: { type: String, default: "GBP" },
+  currency: { type: String, default: "AU$" },
   providerPayload: { type: Object },
 });
 
