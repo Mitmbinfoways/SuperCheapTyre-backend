@@ -3,6 +3,50 @@ const ApiResponse = require("../Utils/ApiResponse");
 const ApiError = require("../Utils/ApiError");
 const MasterFilter = require("../Models/MasterFilter.model");
 
+// Create a single master filter document
+const createMasterFilter = async (req, res) => {
+  try {
+    // Check if a master filter already exists
+    const existingMasterFilter = await MasterFilter.findOne();
+    
+    if (existingMasterFilter) {
+      return res
+        .status(409)
+        .json(new ApiError(409, "Master filter already exists. Only one master filter document is allowed."));
+    }
+
+    // Define default empty structures for tyres and wheels
+    const defaultMasterFilter = {
+      tyres: {
+        pattern: [],
+        width: [],
+        profile: [],
+        diameter: [],
+        loadRating: [],
+        speedRating: []
+      },
+      wheels: {
+        size: [],
+        color: [],
+        diameter: [],
+        fitments: [],
+        staggeredOptions: []
+      }
+    };
+
+    // Create the new master filter
+    const newMasterFilter = new MasterFilter(defaultMasterFilter);
+    const savedMasterFilter = await newMasterFilter.save();
+
+    return res
+      .status(201)
+      .json(new ApiResponse(201, savedMasterFilter, "Master filter created successfully"));
+  } catch (error) {
+    console.error("CreateMasterFilter Error:", error);
+    return res.status(500).json(new ApiError(500, "Internal Server Error"));
+  }
+};
+
 const getAllMasterFilters = async (req, res) => {
   try {
     const { search } = req.query;
@@ -233,6 +277,7 @@ const deleteMasterFilter = async (req, res) => {
 };
 
 module.exports = {
+  createMasterFilter,
   getAllMasterFilters,
   updateMasterFilter,
   deleteMasterFilter,
