@@ -15,6 +15,7 @@ const BrandRoute = require("./Routes/Brand.route");
 const PaymentRoute = require("./Routes/Payment.route");
 const MasterFilterRoute = require("./Routes/MasterFilter.route");
 const GoogleRoute = require("./Routes/GoogleRoute.route");
+const BannerRoute = require("./Routes/Banner.route");
 
 app.use(
   cors({
@@ -42,5 +43,6 @@ app.use("/api/v1/brand", BrandRoute);
 app.use("/api/payment", PaymentRoute);
 app.use("/api/v1/masterFilter", MasterFilterRoute);
 app.use("/api/v1/google", GoogleRoute);
+app.use("/api/v1/banner", BannerRoute);
 
 module.exports = app;
