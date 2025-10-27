@@ -9,6 +9,7 @@ const {
   uploadBannerImages
 } = require("../Controllers/Banner.controller");
 
+
 // Routes for banner management
 BannerRoute.get("/", getAllBanners);
 BannerRoute.post("/", uploadBannerImages.fields([
