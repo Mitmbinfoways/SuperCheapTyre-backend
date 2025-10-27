@@ -46,74 +46,6 @@ const getAllBanners = async (req, res) => {
   }
 };
 
-// Create multiple banners
-const createBanners = async (req, res) => {
-  try {
-    const { isActive } = req.body;
-    
-    // Check if files are uploaded
-    if (!req.files || Object.keys(req.files).length === 0) {
-      return res
-        .status(400)
-        .json(
-          new ApiError(
-            400,
-            "At least one image is required"
-          )
-        );
-    }
-
-    // Get the files from multer
-    const laptopImageFiles = req.files['laptopImage'] || [];
-    const mobileImageFiles = req.files['mobileImage'] || [];
-    
-    // Check if we have matching pairs
-    if (laptopImageFiles.length !== mobileImageFiles.length) {
-      return res
-        .status(400)
-        .json(
-          new ApiError(
-            400,
-            "Number of laptop images must match number of mobile images"
-          )
-        );
-    }
-
-    if (laptopImageFiles.length === 0) {
-      return res
-        .status(400)
-        .json(
-          new ApiError(
-            400,
-            "At least one pair of images is required"
-          )
-        );
-    }
-
-    // Create banner documents for each pair
-    const banners = [];
-    for (let i = 0; i < laptopImageFiles.length; i++) {
-      const laptopImageFile = laptopImageFiles[i];
-      const mobileImageFile = mobileImageFiles[i];
-      
-      const banner = await Banner.create({
-        laptopImage: `/Banners/${laptopImageFile.filename}`,
-        mobileImage: `/Banners/${mobileImageFile.filename}`,
-        isActive: isActive === 'true' || isActive === true || true, // Default to active if not specified
-      });
-      
-      banners.push(banner);
-    }
-
-    return res
-      .status(201)
-      .json(new ApiResponse(201, banners, "Banners created successfully"));
-  } catch (error) {
-    console.error("createBanners Error:", error);
-    return res.status(500).json(new ApiError(500, "Internal Server Error"));
-  }
-};
-
 // Create a single banner (kept for backward compatibility)
 const createBanner = async (req, res) => {
   try {
@@ -254,7 +186,6 @@ const deleteBanner = async (req, res) => {
 
 module.exports = {
   getAllBanners,
-  createBanners,
   createBanner,
   updateBanner,
   deleteBanner,
