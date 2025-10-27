@@ -8,11 +8,16 @@ const createMasterFilter = async (req, res) => {
   try {
     // Check if a master filter already exists
     const existingMasterFilter = await MasterFilter.findOne();
-    
+
     if (existingMasterFilter) {
       return res
         .status(409)
-        .json(new ApiError(409, "Master filter already exists. Only one master filter document is allowed."));
+        .json(
+          new ApiError(
+            409,
+            "Master filter already exists. Only one master filter document is allowed."
+          )
+        );
     }
 
     // Define default empty structures for tyres and wheels
@@ -23,15 +28,15 @@ const createMasterFilter = async (req, res) => {
         profile: [],
         diameter: [],
         loadRating: [],
-        speedRating: []
+        speedRating: [],
       },
       wheels: {
         size: [],
         color: [],
         diameter: [],
         fitments: [],
-        staggeredOptions: []
-      }
+        staggeredOptions: [],
+      },
     };
 
     // Create the new master filter
@@ -40,7 +45,13 @@ const createMasterFilter = async (req, res) => {
 
     return res
       .status(201)
-      .json(new ApiResponse(201, savedMasterFilter, "Master filter created successfully"));
+      .json(
+        new ApiResponse(
+          201,
+          savedMasterFilter,
+          "Master filter created successfully"
+        )
+      );
   } catch (error) {
     console.error("CreateMasterFilter Error:", error);
     return res.status(500).json(new ApiError(500, "Internal Server Error"));
@@ -49,31 +60,55 @@ const createMasterFilter = async (req, res) => {
 
 const getAllMasterFilters = async (req, res) => {
   try {
-    const { search } = req.query;
+    const { search, page = 1, limit = 10 } = req.query;
 
     const filter = {};
-
+    
     if (search) {
+      const searchRegex = { $regex: search, $options: "i" };
       filter.$or = [
-        { "tyres.pattern.name": { $regex: search, $options: "i" } },
-        { "tyres.width.name": { $regex: search, $options: "i" } },
-        { "tyres.profile.name": { $regex: search, $options: "i" } },
-        { "tyres.diameter.name": { $regex: search, $options: "i" } },
-        { "tyres.loadRating.name": { $regex: search, $options: "i" } },
-        { "tyres.speedRating.name": { $regex: search, $options: "i" } },
-        { "wheels.size.name": { $regex: search, $options: "i" } },
-        { "wheels.color.name": { $regex: search, $options: "i" } },
-        { "wheels.diameter.name": { $regex: search, $options: "i" } },
-        { "wheels.fitments.name": { $regex: search, $options: "i" } },
-        { "wheels.staggeredOptions.name": { $regex: search, $options: "i" } },
+        { "tyres.pattern.name": searchRegex },
+        { "tyres.width.name": searchRegex },
+        { "tyres.profile.name": searchRegex },
+        { "tyres.diameter.name": searchRegex },
+        { "tyres.loadRating.name": searchRegex },
+        { "tyres.speedRating.name": searchRegex },
+        { "wheels.size.name": searchRegex },
+        { "wheels.color.name": searchRegex },
+        { "wheels.diameter.name": searchRegex },
+        { "wheels.fitments.name": searchRegex },
+        { "wheels.staggeredOptions.name": searchRegex },
       ];
     }
 
-    const items = await MasterFilter.find(filter).sort({ createdAt: -1 });
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    const items = await MasterFilter.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNumber);
+
+    const totalItems = await MasterFilter.countDocuments(filter);
+    const totalPages = Math.ceil(totalItems / limitNumber);
+
+    const pagination = {
+      totalItems,
+      totalPages,
+      currentPage: pageNumber,
+      pageSize: limitNumber,
+    };
 
     return res
       .status(200)
-      .json(new ApiResponse(200, items, "Master filters fetched successfully"));
+      .json(
+        new ApiResponse(
+          200,
+          { items, pagination },
+          "Master filters fetched successfully"
+        )
+      );
   } catch (error) {
     console.error("GetAllMasterFilters Error:", error);
     return res.status(500).json(new ApiError(500, "Internal Server Error"));
