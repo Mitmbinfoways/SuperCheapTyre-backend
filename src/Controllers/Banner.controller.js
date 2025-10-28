@@ -132,7 +132,7 @@ const updateBanner = async (req, res) => {
     }
 
     if (typeof isActive !== "undefined") {
-      banner.isActive = isActive === 'true' || isActive === true;
+      banner.isActive = isActive === 'true' || isActive === true || isActive === 1;
     }
 
     await banner.save();
@@ -142,6 +142,30 @@ const updateBanner = async (req, res) => {
       .json(new ApiResponse(200, banner, "Banner updated successfully"));
   } catch (error) {
     console.error("updateBanner Error:", error);
+    return res.status(500).json(new ApiError(500, "Internal Server Error"));
+  }
+};
+
+// Get a single banner by ID
+const getBannerById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const banner = await Banner.findById(id);
+    if (!banner) {
+      return res.status(404).json(new ApiError(404, "Banner not found"));
+    }
+
+    // Check if banner is marked as deleted
+    if (banner.isDelete) {
+      return res.status(404).json(new ApiError(404, "Banner not found"));
+    }
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, banner, "Banner fetched successfully"));
+  } catch (error) {
+    console.error("getBannerById Error:", error);
     return res.status(500).json(new ApiError(500, "Internal Server Error"));
   }
 };
@@ -186,6 +210,7 @@ const deleteBanner = async (req, res) => {
 
 module.exports = {
   getAllBanners,
+  getBannerById,
   createBanner,
   updateBanner,
   deleteBanner,

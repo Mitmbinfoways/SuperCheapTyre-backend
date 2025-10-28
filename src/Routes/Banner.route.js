@@ -2,6 +2,7 @@ const express = require("express");
 const BannerRoute = express.Router();
 const {
   getAllBanners,
+  getBannerById,
   createBanner,
   updateBanner,
   deleteBanner,
@@ -10,6 +11,7 @@ const {
 
 
 BannerRoute.get("/", getAllBanners);
+BannerRoute.get("/:id", getBannerById);
 BannerRoute.post("/single", uploadBannerImages.fields([
   { name: 'laptopImage', maxCount: 1 },
   { name: 'mobileImage', maxCount: 1 }
