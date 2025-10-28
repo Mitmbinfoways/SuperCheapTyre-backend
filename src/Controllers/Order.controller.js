@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const Order = require("../Models/Order.model");
+const PDFDocument = require("pdfkit");
 const Product = require("../Models/Product.model");
 const Appointment = require("../Models/Appointment.model");
 const TimeSlot = require("../Models/TimeSlot.model");
@@ -283,6 +284,8 @@ const createOrder = async (req, res) => {
     const { items, subtotal, total, appointmentId, customer, payment } =
       req.body;
 
+      console.log(payment)
+
     if (!items || !Array.isArray(items) || !items.length) {
       return res
         .status(400)
@@ -357,7 +360,7 @@ const createOrder = async (req, res) => {
     };
 
     const validPaymentMethods = ["card", "cash", "online"];
-    const validPaymentStatuses = ["partial", "completed", "failed"];
+    const validPaymentStatuses = ["partial", "full", "failed"];
     const paymentData = {
       amount: typeof payment?.amount === "number" ? payment.amount : 0,
       method:
@@ -383,22 +386,48 @@ const createOrder = async (req, res) => {
         .json(new ApiError(400, "One or more products not found or inactive"));
     }
 
-    const enrichedItems = items.map((item) => {
+    for (const item of items) {
       const product = products.find((p) => p._id.toString() === item.id);
+
+      if (product.stock < item.quantity) {
+        return res
+          .status(400)
+          .json(
+            new ApiError(
+              400,
+              `Insufficient stock for product: ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}`
+            )
+          );
+      }
+    }
+
+    for (const item of items) {
+      await Product.findByIdAndUpdate(
+        item.id,
+        { $inc: { stock: -item.quantity } },
+        { runValidators: true }
+      );
+    }
+
+    const updatedProducts = await Product.find({
+      _id: { $in: productIds },
+    }).lean();
+
+    const enrichedItems = items.map((item) => {
+      const product = updatedProducts.find((p) => p._id.toString() === item.id);
       return {
         id: item.id,
         quantity: item.quantity,
         name: product.name,
-        brand: product.brand || "", // Ensure schema alignment
-        category: product.category || "", // Ensure schema alignment
+        brand: product.brand || "",
+        category: product.category || "",
         price: product.price,
         image:
           product.images && product.images.length > 0 ? product.images[0] : "",
-        sku: product.sku || "", // Ensure schema alignment
+        sku: product.sku || "",
       };
     });
 
-    // Create order
     const order = await Order.create({
       items: enrichedItems,
       subtotal,
@@ -452,148 +481,342 @@ const DownloadPDF = async (req, res) => {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    const doc = new PDFDocument({ margin: 50 });
+    const doc = new PDFDocument({ 
+      margin: 0, 
+      size: 'A4',
+      bufferPages: true 
+    });
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=order-${orderId}.pdf`
+      `attachment; filename=invoice-${orderId}.pdf`
     );
 
     doc.pipe(res);
 
-    // Add content to PDF
-    // Header
-    doc.fontSize(20).text("Order Invoice", { align: "center" });
-    doc.moveDown();
+    // Color palette
+    const brandColor = '#0f172a';      // Dark blue-gray
+    const accentColor = '#3b82f6';     // Bright blue
+    const successColor = '#10b981';    // Green
+    const warningColor = '#f59e0b';    // Orange
+    const dangerColor = '#ef4444';     // Red
+    const textPrimary = '#1e293b';     // Dark gray
+    const textSecondary = '#64748b';   // Medium gray
+    const borderColor = '#e2e8f0';     // Light gray
+    const bgLight = '#f8fafc';         // Very light gray
 
-    // Order Details
-    doc.fontSize(12).text(`Order ID: ${order._id}`, { continued: false });
-    doc.text(`Date: ${new Date(order.createdAt).toLocaleDateString()}`);
-    doc.moveDown();
+    // ==================== HEADER SECTION ====================
+    // Gradient header background
+    doc.rect(0, 0, doc.page.width, 200).fill(brandColor);
+    
+    // Add decorative shapes
+    doc.circle(500, 50, 80).fill('#1e293b').opacity(0.5);
+    doc.circle(520, 120, 60).fill('#334155').opacity(0.5);
+    doc.opacity(1);
 
-    // Customer Information
-    doc.fontSize(14).text("Customer Information", { underline: true });
-    doc.fontSize(10);
-    doc.text(`Name: ${order.customer.name}`);
-    doc.text(`Phone: ${order.customer.phone}`);
-    doc.text(`Email: ${order.customer.email || "N/A"}`);
-    doc.moveDown();
+    // Logo placeholder (you can replace this with actual logo image)
+    // If you have a logo file, use: doc.image('path/to/logo.png', 50, 40, { width: 120 });
+    // For now, creating a text-based logo
+    doc.roundedRect(50, 40, 60, 60, 8).fill('#ffffff');
+    doc.fontSize(24).fillColor(accentColor).font('Helvetica-Bold')
+       .text('YB', 58, 60, { width: 44, align: 'center' });
+    doc.fontSize(8).fillColor(textSecondary)
+       .text('YOUR BRAND', 50, 105, { width: 60, align: 'center' });
 
-    // Appointment Information
-    doc.fontSize(14).text("Appointment Details", { underline: true });
-    doc.fontSize(10);
-    doc.text(
-      `Name: ${order.appointment.firstName} ${order.appointment.lastName}`
-    );
-    doc.text(`Phone: ${order.appointment.phone}`);
-    doc.text(`Email: ${order.appointment.email}`);
-    doc.text(`Date: ${order.appointment.date}`);
-    doc.text(`Time: ${order.appointment.time}`);
-    doc.moveDown();
+    // Company info
+    doc.fontSize(10).fillColor('#ffffff').font('Helvetica');
+    doc.text('Your Company Name', 130, 50);
+    doc.fontSize(8).fillColor('#cbd5e1');
+    doc.text('123 Business Street, Suite 100', 130, 68);
+    doc.text('City, State 12345', 130, 82);
+    doc.text('Phone: (555) 123-4567', 130, 96);
+    doc.text('Email: info@yourcompany.com', 130, 110);
 
-    // Order Items Table Header
-    doc.fontSize(14).text("Order Items", { underline: true });
-    doc.moveDown(0.5);
+    // Invoice title and info (right aligned)
+    doc.fontSize(32).fillColor('#ffffff').font('Helvetica-Bold')
+       .text('INVOICE', 350, 50, { align: 'right', width: 200 });
+    
+    doc.fontSize(10).fillColor('#cbd5e1').font('Helvetica');
+    doc.text(`Invoice #: INV-${order._id.toString().slice(-8).toUpperCase()}`, 350, 95, { 
+      align: 'right', 
+      width: 200 
+    });
+    
+    const formattedDate = new Date(order.createdAt).toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+    doc.text(`Date: ${formattedDate}`, 350, 110, { align: 'right', width: 200 });
+    
+    // Status badge
+    const statusColor = order.payment?.status === 'completed' ? successColor : 
+                       order.payment?.status === 'pending' ? warningColor : dangerColor;
+    const statusText = order.payment?.status?.toUpperCase() || 'PENDING';
+    
+    doc.roundedRect(445, 135, 105, 25, 12).fill(statusColor);
+    doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold')
+       .text(statusText, 445, 143, { align: 'center', width: 105 });
 
-    // Table headers
-    const tableTop = doc.y;
-    doc.fontSize(10).font("Helvetica-Bold");
-    doc.text("Item", 50, tableTop, { width: 150 });
-    doc.text("Qty", 220, tableTop, { width: 50 });
-    doc.text("Price", 280, tableTop, { width: 80, align: "right" });
-    doc.text("Total", 380, tableTop, { width: 80, align: "right" });
+    // ==================== BILL TO / SHIP TO SECTION ====================
+    let yPos = 240;
 
-    doc
-      .moveTo(50, tableTop + 15)
-      .lineTo(550, tableTop + 15)
-      .stroke();
-    doc.moveDown();
+    // Bill To section
+    doc.roundedRect(50, yPos, 240, 140, 8)
+       .lineWidth(1.5)
+       .strokeOpacity(1)
+       .stroke(borderColor)
+       .fillOpacity(0.02)
+       .fillAndStroke(accentColor, borderColor);
+    
+    doc.fillOpacity(1);
+    doc.fontSize(11).fillColor(textSecondary).font('Helvetica-Bold')
+       .text('BILL TO', 65, yPos + 20);
+    
+    doc.fontSize(13).fillColor(textPrimary).font('Helvetica-Bold')
+       .text(order.customer.name, 65, yPos + 45);
+    
+    doc.fontSize(9).fillColor(textSecondary).font('Helvetica');
+    doc.text(order.customer.phone, 65, yPos + 68);
+    doc.text(order.customer.email || 'N/A', 65, yPos + 85);
+
+    // Ship To / Appointment section
+    doc.roundedRect(310, yPos, 240, 140, 8)
+       .lineWidth(1.5)
+       .stroke(borderColor)
+       .fillOpacity(0.02)
+       .fillAndStroke(accentColor, borderColor);
+    
+    doc.fillOpacity(1);
+    doc.fontSize(11).fillColor(textSecondary).font('Helvetica-Bold')
+       .text('APPOINTMENT DETAILS', 325, yPos + 20);
+    
+    doc.fontSize(13).fillColor(textPrimary).font('Helvetica-Bold')
+       .text(`${order.appointment.firstName} ${order.appointment.lastName}`, 325, yPos + 45);
+    
+    doc.fontSize(9).fillColor(textSecondary).font('Helvetica');
+    doc.text(order.appointment.phone, 325, yPos + 68);
+    doc.text(order.appointment.email, 325, yPos + 85);
+    
+    // Appointment date/time with icon
+    doc.circle(330, 110 + yPos, 3).fill(accentColor);
+    doc.fontSize(9).fillColor(textPrimary).font('Helvetica-Bold')
+       .text(`${order.appointment.date} • ${order.appointment.time}`, 340, yPos + 105);
+
+    // ==================== ITEMS TABLE ====================
+    yPos = 420;
+
+    doc.fontSize(14).fillColor(textPrimary).font('Helvetica-Bold')
+       .text('Items & Description', 50, yPos);
+
+    yPos += 35;
+
+    // Table header with gradient effect
+    doc.rect(50, yPos, 500, 30).fill(brandColor);
+    
+    // Subtle highlight line
+    doc.rect(50, yPos, 500, 3).fill(accentColor);
+    
+    doc.fontSize(9).fillColor('#ffffff').font('Helvetica-Bold');
+    doc.text('ITEM DESCRIPTION', 65, yPos + 11);
+    doc.text('QTY', 320, yPos + 11, { width: 40, align: 'center' });
+    doc.text('UNIT PRICE', 380, yPos + 11, { width: 70, align: 'right' });
+    doc.text('AMOUNT', 470, yPos + 11, { width: 65, align: 'right' });
+
+    yPos += 30;
 
     // Table rows
-    doc.font("Helvetica");
-    let yPosition = tableTop + 25;
-
+    let rowIndex = 0;
     order.items.forEach((item) => {
       const itemTotal = item.price * item.quantity;
+      const hasDetails = item.brand || item.sku;
+      const rowHeight = hasDetails ? 50 : 35;
 
-      doc.text(item.name, 50, yPosition, { width: 150 });
-      doc.text(item.quantity.toString(), 220, yPosition, { width: 50 });
-      doc.text(`$${item.price.toFixed(2)}`, 280, yPosition, {
-        width: 80,
-        align: "right",
-      });
-      doc.text(`$${itemTotal.toFixed(2)}`, 380, yPosition, {
-        width: 80,
-        align: "right",
-      });
-
-      if (item.brand || item.sku) {
-        yPosition += 12;
-        doc.fontSize(8).fillColor("#666");
-        doc.text(
-          `${item.brand || ""} ${item.sku ? "| SKU: " + item.sku : ""}`,
-          50,
-          yPosition,
-          { width: 150 }
-        );
-        doc.fontSize(10).fillColor("#000");
+      // Alternating row background
+      if (rowIndex % 2 === 1) {
+        doc.rect(50, yPos, 500, rowHeight).fill(bgLight);
       }
 
-      yPosition += 20;
+      // Item name
+      doc.fontSize(10).fillColor(textPrimary).font('Helvetica-Bold')
+         .text(item.name, 65, yPos + 10, { width: 230, lineBreak: false });
+
+      // Brand and SKU details
+      if (hasDetails) {
+        doc.fontSize(8).fillColor(textSecondary).font('Helvetica');
+        const details = [];
+        if (item.brand) details.push(item.brand);
+        if (item.sku) details.push(`SKU: ${item.sku}`);
+        doc.text(details.join(' • '), 65, yPos + 27, { width: 230 });
+      }
+
+      // Quantity
+      doc.fontSize(10).fillColor(textPrimary).font('Helvetica')
+         .text(item.quantity.toString(), 320, yPos + 10, { width: 40, align: 'center' });
+
+      // Unit price
+      doc.text(`$${item.price.toFixed(2)}`, 380, yPos + 10, { width: 70, align: 'right' });
+
+      // Total
+      doc.font('Helvetica-Bold')
+         .text(`$${itemTotal.toFixed(2)}`, 470, yPos + 10, { width: 65, align: 'right' });
+
+      // Bottom border
+      doc.strokeColor(borderColor).lineWidth(0.5)
+         .moveTo(50, yPos + rowHeight)
+         .lineTo(550, yPos + rowHeight)
+         .stroke();
+
+      yPos += rowHeight;
+      rowIndex++;
 
       // Add new page if needed
-      if (yPosition > 700) {
+      if (yPos > 650) {
         doc.addPage();
-        yPosition = 50;
+        yPos = 50;
+        rowIndex = 0;
       }
     });
 
-    // Summary
-    doc.moveDown();
-    yPosition = doc.y + 10;
-    doc.moveTo(50, yPosition).lineTo(550, yPosition).stroke();
+    // ==================== SUMMARY SECTION ====================
+    yPos += 30;
 
-    yPosition += 15;
-    doc.fontSize(10);
-    doc.text("Subtotal:", 380, yPosition, { width: 100 });
-    doc.text(`$${order.subtotal.toFixed(2)}`, 480, yPosition, {
-      width: 70,
-      align: "right",
-    });
+    // Summary box with shadow effect
+    const summaryBoxX = 330;
+    const summaryBoxY = yPos;
+    
+    // Shadow
+    doc.rect(summaryBoxX + 3, summaryBoxY + 3, 220, 110, 8)
+       .fillOpacity(0.1)
+       .fill('#000000');
+    
+    // Main box
+    doc.rect(summaryBoxX, summaryBoxY, 220, 110, 8)
+       .fillOpacity(1)
+       .fill('#ffffff')
+       .strokeColor(borderColor)
+       .lineWidth(1)
+       .stroke();
 
-    yPosition += 20;
-    doc.fontSize(12).font("Helvetica-Bold");
-    doc.text("Total:", 380, yPosition, { width: 100 });
-    doc.text(`$${order.total.toFixed(2)}`, 480, yPosition, {
-      width: 70,
-      align: "right",
-    });
+    // Subtotal
+    yPos += 20;
+    doc.fontSize(10).fillColor(textSecondary).font('Helvetica')
+       .text('Subtotal:', summaryBoxX + 20, yPos);
+    doc.fillColor(textPrimary).font('Helvetica-Bold')
+       .text(`$${order.subtotal.toFixed(2)}`, summaryBoxX + 20, yPos, { 
+         width: 180, 
+         align: 'right' 
+       });
 
-    // Payment Information
+    // Tax (if applicable)
+    if (order.tax) {
+      yPos += 22;
+      doc.fontSize(10).fillColor(textSecondary).font('Helvetica')
+         .text('Tax:', summaryBoxX + 20, yPos);
+      doc.fillColor(textPrimary).font('Helvetica-Bold')
+         .text(`$${order.tax.toFixed(2)}`, summaryBoxX + 20, yPos, { 
+           width: 180, 
+           align: 'right' 
+         });
+    }
+
+    // Divider
+    yPos += 25;
+    doc.strokeColor(borderColor).lineWidth(1)
+       .moveTo(summaryBoxX + 20, yPos)
+       .lineTo(summaryBoxX + 200, yPos)
+       .stroke();
+
+    // Total with accent background
+    yPos += 15;
+    doc.roundedRect(summaryBoxX + 15, yPos - 8, 190, 32, 6)
+       .fill(accentColor)
+       .fillOpacity(0.1)
+       .fillAndStroke(accentColor, accentColor);
+    
+    doc.fillOpacity(1);
+    doc.fontSize(12).fillColor(textPrimary).font('Helvetica-Bold')
+       .text('TOTAL:', summaryBoxX + 25, yPos);
+    doc.fontSize(16).fillColor(accentColor)
+       .text(`$${order.total.toFixed(2)}`, summaryBoxX + 25, yPos, { 
+         width: 170, 
+         align: 'right' 
+       });
+
+    // ==================== PAYMENT INFO ====================
     if (order.payment) {
-      yPosition += 30;
-      doc
-        .fontSize(14)
-        .text("Payment Information", 50, yPosition, { underline: true });
-      yPosition += 20;
-      doc.fontSize(10).font("Helvetica");
-      doc.text(`Method: ${order.payment.method || "N/A"}`, 50, yPosition);
-      yPosition += 15;
-      doc.text(`Status: ${order.payment.status}`, 50, yPosition);
+      yPos += 60;
+      
+      doc.fontSize(12).fillColor(textPrimary).font('Helvetica-Bold')
+         .text('Payment Information', 50, yPos);
+      
+      yPos += 25;
+      
+      // Payment details box
+      doc.roundedRect(50, yPos, 280, 70, 8)
+         .fill(bgLight)
+         .stroke(borderColor)
+         .fillAndStroke(bgLight, borderColor);
+      
+      doc.fontSize(9).fillColor(textSecondary).font('Helvetica')
+         .text('Payment Method:', 70, yPos + 18);
+      doc.fontSize(10).fillColor(textPrimary).font('Helvetica-Bold')
+         .text(order.payment.method || 'N/A', 180, yPos + 18);
+      
+      doc.fontSize(9).fillColor(textSecondary).font('Helvetica')
+         .text('Payment Status:', 70, yPos + 38);
+      
+      const paymentStatusColor = order.payment.status === 'completed' ? successColor : 
+                                 order.payment.status === 'pending' ? warningColor : dangerColor;
+      doc.fontSize(10).fillColor(paymentStatusColor).font('Helvetica-Bold')
+         .text(order.payment.status.toUpperCase(), 180, yPos + 38);
+      
       if (order.payment.transactionId) {
-        yPosition += 15;
-        doc.text(
-          `Transaction ID: ${order.payment.transactionId}`,
-          50,
-          yPosition
-        );
+        doc.fontSize(8).fillColor(textSecondary).font('Helvetica')
+           .text(`Transaction ID: ${order.payment.transactionId}`, 70, yPos + 55);
       }
     }
-    doc.fontSize(8).fillColor("#666");
-    doc.text("Thank you for your order!", 50, doc.page.height - 50, {
-      align: "center",
-    });
+
+    // ==================== FOOTER ====================
+    const footerY = doc.page.height - 100;
+    
+    // Footer divider
+    doc.strokeColor(borderColor).lineWidth(1)
+       .moveTo(50, footerY)
+       .lineTo(550, footerY)
+       .stroke();
+    
+    // Thank you message
+    doc.fontSize(11).fillColor(textPrimary).font('Helvetica-Bold')
+       .text('Thank you for your business!', 50, footerY + 20, { 
+         align: 'center',
+         width: 500 
+       });
+    
+    doc.fontSize(9).fillColor(textSecondary).font('Helvetica')
+       .text('If you have any questions about this invoice, please contact us', 50, footerY + 40, { 
+         align: 'center',
+         width: 500 
+       });
+    
+    doc.fontSize(8).fillColor(textSecondary)
+       .text('info@yourcompany.com • (555) 123-4567 • www.yourcompany.com', 50, footerY + 58, { 
+         align: 'center',
+         width: 500 
+       });
+
+    // Page numbers
+    const pages = doc.bufferedPageRange();
+    for (let i = 0; i < pages.count; i++) {
+      doc.switchToPage(i);
+      doc.fontSize(8).fillColor(textSecondary)
+         .text(`Page ${i + 1} of ${pages.count}`, 50, doc.page.height - 50, {
+           align: 'center',
+           width: 500
+         });
+    }
+
     doc.end();
   } catch (error) {
     console.error("PDF generation error:", error);
