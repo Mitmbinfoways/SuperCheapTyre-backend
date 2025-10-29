@@ -20,8 +20,30 @@ const createTechnician = async (req, res) => {
     }
 
     const existingTechnician = await TechnicianModel.findOne({ email });
-    if (existingTechnician) {
-      return res.status(400).json(new ApiError(400, "Email already exists"));
+
+    if (existingTechnician && !existingTechnician.isDelete) {
+      return res
+        .status(400)
+        .json(new ApiError(400, null, "Email already exists"));
+    }
+
+    if (existingTechnician && existingTechnician.isDelete) {
+      existingTechnician.firstName = firstName;
+      existingTechnician.lastName = lastName;
+      existingTechnician.phone = phone;
+      existingTechnician.isDelete = false;
+      existingTechnician.isActive = true;
+
+      const restoredTechnician = await existingTechnician.save();
+      return res
+        .status(200)
+        .json(
+          new ApiResponse(
+            200,
+            restoredTechnician,
+            "Technician restored successfully"
+          )
+        );
     }
 
     const technician = new TechnicianModel({
@@ -32,12 +54,14 @@ const createTechnician = async (req, res) => {
     });
 
     const savedTechnician = await technician.save();
+
     return res
       .status(201)
       .json(
         new ApiResponse(201, savedTechnician, "Technician created successfully")
       );
   } catch (error) {
+    console.error(error);
     res.status(500).json(new ApiError(500, error.message || "Server error"));
   }
 };
@@ -46,7 +70,7 @@ const getAllTechnician = async (req, res) => {
   try {
     const { search, page, limit } = req.query;
     const filter = {};
-    
+
     filter.isDelete = false;
     if (search && search.trim() !== "") {
       filter.$or = [

@@ -184,6 +184,7 @@ const CreateProduct = async (req, res) => {
     const existingProduct = await Product.findOne({
       name: name.trim(),
       sku: sku.trim(),
+      isDelete: false,
     });
 
     if (existingProduct) {
@@ -197,7 +198,6 @@ const CreateProduct = async (req, res) => {
         );
     }
 
-    // Handle uploaded images
     const uploadedImages = Array.isArray(req.files)
       ? req.files.map((f) => f.filename)
       : [];
@@ -207,7 +207,6 @@ const CreateProduct = async (req, res) => {
       ...uploadedImages,
     ];
 
-    // Convert price & stock to numbers if strings
     const priceNumber = typeof price === "string" ? Number(price) : price;
     const stockNumber = typeof stock === "string" ? Number(stock) : stock;
 
@@ -241,12 +240,12 @@ const CreateProduct = async (req, res) => {
     }
 
     const product = await Product.create({
-      name,
+      name: name.trim(),
       category,
-      brand,
+      brand: brand.trim(),
       description,
       images: finalImages,
-      sku,
+      sku: sku.trim(),
       price: priceNumber,
       stock: stockNumber,
       tyreSpecifications: finalTyreSpecs,
