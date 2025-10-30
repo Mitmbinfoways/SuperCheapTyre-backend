@@ -448,17 +448,17 @@ const createOrder = async (req, res) => {
     });
 
     // Send confirmation email
-    try {
-      const emailHTML = generateOrderConfirmationEmail(order);
-      await sendMail(
-        appointment.email,
-        "Order Confirmation - Your Appointment is Confirmed!",
-        emailHTML
-      );
-      console.log(`Confirmation email sent to ${appointment.email}`);
-    } catch (emailError) {
-      console.error("Failed to send confirmation email:", emailError);
-    }
+    // try {
+    //   const emailHTML = generateOrderConfirmationEmail(order);
+    //   await sendMail(
+    //     appointment.email,
+    //     "Order Confirmation - Your Appointment is Confirmed!",
+    //     emailHTML
+    //   );
+    //   console.log(`Confirmation email sent to ${appointment.email}`);
+    // } catch (emailError) {
+    //   console.error("Failed to send confirmation email:", emailError);
+    // }
 
     return res
       .status(201)
