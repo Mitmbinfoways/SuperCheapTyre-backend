@@ -18,8 +18,6 @@ const getAllProducts = async (req, res) => {
       brand,
       isActive,
       isPopular,
-      minPrice,
-      maxPrice,
       pattern,
       width,
       profile,
@@ -31,6 +29,7 @@ const getAllProducts = async (req, res) => {
       staggeredOptions,
       diameter,
       search,
+      sortBy,
       page = 1,
       limit = 10,
     } = req.query;
@@ -45,11 +44,7 @@ const getAllProducts = async (req, res) => {
     if (typeof isActive !== "undefined") filter.isActive = isActive === "true";
     if (typeof isPopular !== "undefined")
       filter.isPopular = isPopular === "true";
-    if (minPrice || maxPrice) {
-      filter.price = {};
-      if (minPrice) filter.price.$gte = Number(minPrice);
-      if (maxPrice) filter.price.$lte = Number(maxPrice);
-    }
+
     if (pattern)
       filter["tyreSpecifications.pattern"] = { $regex: pattern, $options: "i" };
     if (width)
@@ -105,6 +100,13 @@ const getAllProducts = async (req, res) => {
       ];
     }
 
+    let sortOption = { createdAt: -1 };
+    if (sortBy === "low-to-high") {
+      sortOption = { price: 1 };
+    } else if (sortBy === "high-to-low") {
+      sortOption = { price: -1 };
+    }
+
     let items;
     let pagination = null;
 
@@ -113,12 +115,11 @@ const getAllProducts = async (req, res) => {
       const limitNumber = parseInt(limit, 10);
       const skip = (pageNumber - 1) * limitNumber;
 
-      items = await Product.find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limitNumber);
+      const [products, totalItems] = await Promise.all([
+        Product.find(filter).sort(sortOption).skip(skip).limit(limitNumber),
+        Product.countDocuments(filter),
+      ]);
 
-      const totalItems = await Product.countDocuments(filter);
       const totalPages = Math.ceil(totalItems / limitNumber);
 
       pagination = {
@@ -127,8 +128,10 @@ const getAllProducts = async (req, res) => {
         currentPage: pageNumber,
         pageSize: limitNumber,
       };
+
+      items = products;
     } else {
-      items = await Product.find(filter).sort({ createdAt: -1 });
+      items = await Product.find(filter).sort(sortOption);
     }
 
     return res
