@@ -6,6 +6,9 @@ const Appointment = require("../Models/Appointment.model");
 const Query = require("../Models/Contact.model");
 const Order = require("../Models/Order.model");
 const Holiday = require("../Models/Holiday.model");
+const Brand = require("../Models/Brand.model");
+const Banner = require("../Models/Banner.model");
+const Blog = require("../Models/Blog.model");
 const Technician = require("../Models/Technician.model");
 const fs = require("fs");
 const path = require("path");
@@ -492,6 +495,9 @@ const DashboardCount = async (req, res) => {
       Order.countDocuments(),
       Holiday.countDocuments(),
       Technician.countDocuments({ isDelete: false, isActive: true }),
+      Brand.countDocuments({ isActive: true }),
+      Banner.countDocuments({ isDelete: false, isActive: true }),
+      Blog.countDocuments({ isActive: true }),
     ]);
 
     res.status(200).json(
