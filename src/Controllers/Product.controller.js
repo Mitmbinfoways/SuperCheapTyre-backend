@@ -510,6 +510,9 @@ const DashboardCount = async (req, res) => {
           orderCount,
           holidayCount,
           employeeCount,
+          brandCount,
+          bannerCount,
+          blogCount,
         },
         "Counts fetched successfully"
       )
