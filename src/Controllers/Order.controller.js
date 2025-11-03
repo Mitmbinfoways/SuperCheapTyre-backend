@@ -7,6 +7,7 @@ const TimeSlot = require("../Models/TimeSlot.model");
 const ApiResponse = require("../Utils/ApiResponse");
 const ApiError = require("../Utils/ApiError");
 const sendMail = require("../Utils/Nodemailer");
+const dayjs = require("dayjs");
 
 const getAllOrders = async (req, res) => {
   try {
@@ -284,8 +285,6 @@ const createOrder = async (req, res) => {
     const { items, subtotal, total, appointmentId, customer, payment } =
       req.body;
 
-      console.log(payment)
-
     if (!items || !Array.isArray(items) || !items.length) {
       return res
         .status(400)
@@ -375,7 +374,6 @@ const createOrder = async (req, res) => {
     };
 
     const productIds = items.map((item) => item.id);
-    console.log(productIds);
     const products = await Product.find({
       _id: { $in: productIds },
     }).lean();
@@ -481,10 +479,10 @@ const DownloadPDF = async (req, res) => {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    const doc = new PDFDocument({ 
-      margin: 0, 
-      size: 'A4',
-      bufferPages: true 
+    const doc = new PDFDocument({
+      margin: 0,
+      size: "A4",
+      bufferPages: true,
     });
 
     res.setHeader("Content-Type", "application/pdf");
@@ -496,133 +494,179 @@ const DownloadPDF = async (req, res) => {
     doc.pipe(res);
 
     // Color palette
-    const brandColor = '#0f172a';      // Dark blue-gray
-    const accentColor = '#3b82f6';     // Bright blue
-    const successColor = '#10b981';    // Green
-    const warningColor = '#f59e0b';    // Orange
-    const dangerColor = '#ef4444';     // Red
-    const textPrimary = '#1e293b';     // Dark gray
-    const textSecondary = '#64748b';   // Medium gray
-    const borderColor = '#e2e8f0';     // Light gray
-    const bgLight = '#f8fafc';         // Very light gray
+    const brandColor = "#0f172a"; // Dark blue-gray
+    const accentColor = "#3b82f6"; // Bright blue
+    const successColor = "#10b981"; // Green
+    const warningColor = "#f59e0b"; // Orange
+    const dangerColor = "#ef4444"; // Red
+    const textPrimary = "#1e293b"; // Dark gray
+    const textSecondary = "#64748b"; // Medium gray
+    const borderColor = "#e2e8f0"; // Light gray
+    const bgLight = "#f8fafc"; // Very light gray
 
     // ==================== HEADER SECTION ====================
     // Gradient header background
     doc.rect(0, 0, doc.page.width, 200).fill(brandColor);
-    
+
     // Add decorative shapes
-    doc.circle(500, 50, 80).fill('#1e293b').opacity(0.5);
-    doc.circle(520, 120, 60).fill('#334155').opacity(0.5);
+    doc.opacity(0.5);
+    doc.circle(500, 50, 80).fill("#1e293b");
+    doc.circle(520, 120, 60).fill("#334155");
     doc.opacity(1);
 
-    // Logo placeholder (you can replace this with actual logo image)
-    // If you have a logo file, use: doc.image('path/to/logo.png', 50, 40, { width: 120 });
-    // For now, creating a text-based logo
-    doc.roundedRect(50, 40, 60, 60, 8).fill('#ffffff');
-    doc.fontSize(24).fillColor(accentColor).font('Helvetica-Bold')
-       .text('YB', 58, 60, { width: 44, align: 'center' });
-    doc.fontSize(8).fillColor(textSecondary)
-       .text('YOUR BRAND', 50, 105, { width: 60, align: 'center' });
+    // Logo placeholder
+    doc.roundedRect(50, 40, 60, 60, 8).fill("#ffffff");
+    doc
+      .fontSize(24)
+      .fillColor(accentColor)
+      .font("Helvetica-Bold")
+      .text("YB", 58, 60, { width: 44, align: "center" });
+    doc
+      .fontSize(8)
+      .fillColor(textSecondary)
+      .text("YOUR BRAND", 50, 105, { width: 60, align: "center" });
 
     // Company info
-    doc.fontSize(10).fillColor('#ffffff').font('Helvetica');
-    doc.text('Your Company Name', 130, 50);
-    doc.fontSize(8).fillColor('#cbd5e1');
-    doc.text('123 Business Street, Suite 100', 130, 68);
-    doc.text('City, State 12345', 130, 82);
-    doc.text('Phone: (555) 123-4567', 130, 96);
-    doc.text('Email: info@yourcompany.com', 130, 110);
+    doc.fontSize(10).fillColor("#ffffff").font("Helvetica");
+    doc.text("Super Cheap Tyres", 130, 50);
+    doc.fontSize(8).fillColor("#cbd5e1");
+    doc.text("123 Business Street, Suite 100", 130, 68);
+    doc.text("City, State 12345", 130, 82);
+    doc.text("Phone: (555) 123-4567", 130, 96);
+    doc.text("Email: info@yourcompany.com", 130, 110);
 
     // Invoice title and info (right aligned)
-    doc.fontSize(32).fillColor('#ffffff').font('Helvetica-Bold')
-       .text('INVOICE', 350, 50, { align: 'right', width: 200 });
-    
-    doc.fontSize(10).fillColor('#cbd5e1').font('Helvetica');
-    doc.text(`Invoice #: INV-${order._id.toString().slice(-8).toUpperCase()}`, 350, 95, { 
-      align: 'right', 
-      width: 200 
+    doc
+      .fontSize(32)
+      .fillColor("#ffffff")
+      .font("Helvetica-Bold")
+      .text("INVOICE", 350, 50, { align: "right", width: 200 });
+
+    doc.fontSize(10).fillColor("#cbd5e1").font("Helvetica");
+    doc.text(
+      `Invoice #: INV-${order._id.toString().slice(-8).toUpperCase()}`,
+      350,
+      95,
+      {
+        align: "right",
+        width: 200,
+      }
+    );
+
+    const formattedDate = new Date(order.createdAt).toLocaleDateString(
+      "en-US",
+      {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      }
+    );
+    doc.text(`Date: ${formattedDate}`, 350, 110, {
+      align: "right",
+      width: 200,
     });
-    
-    const formattedDate = new Date(order.createdAt).toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
-    });
-    doc.text(`Date: ${formattedDate}`, 350, 110, { align: 'right', width: 200 });
-    
+
     // Status badge
-    const statusColor = order.payment?.status === 'completed' ? successColor : 
-                       order.payment?.status === 'pending' ? warningColor : dangerColor;
-    const statusText = order.payment?.status?.toUpperCase() || 'PENDING';
-    
+    const statusColor =
+      order.payment?.status === "completed"
+        ? successColor
+        : order.payment?.status === "pending"
+        ? warningColor
+        : dangerColor;
+    const statusText = order.payment?.status?.toUpperCase() || "PENDING";
+
     doc.roundedRect(445, 135, 105, 25, 12).fill(statusColor);
-    doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold')
-       .text(statusText, 445, 143, { align: 'center', width: 105 });
+    doc
+      .fontSize(10)
+      .fillColor("#ffffff")
+      .font("Helvetica-Bold")
+      .text(statusText, 445, 143, { align: "center", width: 105 });
 
     // ==================== BILL TO / SHIP TO SECTION ====================
     let yPos = 240;
 
     // Bill To section
-    doc.roundedRect(50, yPos, 240, 140, 8)
-       .lineWidth(1.5)
-       .strokeOpacity(1)
-       .stroke(borderColor)
-       .fillOpacity(0.02)
-       .fillAndStroke(accentColor, borderColor);
-    
+    doc.fillOpacity(0.02);
+    doc.roundedRect(50, yPos, 240, 140, 8).fill(accentColor);
     doc.fillOpacity(1);
-    doc.fontSize(11).fillColor(textSecondary).font('Helvetica-Bold')
-       .text('BILL TO', 65, yPos + 20);
-    
-    doc.fontSize(13).fillColor(textPrimary).font('Helvetica-Bold')
-       .text(order.customer.name, 65, yPos + 45);
-    
-    doc.fontSize(9).fillColor(textSecondary).font('Helvetica');
+    doc.roundedRect(50, yPos, 240, 140, 8).lineWidth(1.5).stroke(borderColor);
+
+    doc
+      .fontSize(11)
+      .fillColor(textSecondary)
+      .font("Helvetica-Bold")
+      .text("BILL TO", 65, yPos + 20);
+
+    doc
+      .fontSize(13)
+      .fillColor(textPrimary)
+      .font("Helvetica-Bold")
+      .text(order.customer.name, 65, yPos + 45);
+
+    doc.fontSize(9).fillColor(textSecondary).font("Helvetica");
     doc.text(order.customer.phone, 65, yPos + 68);
-    doc.text(order.customer.email || 'N/A', 65, yPos + 85);
+    doc.text(order.customer.email || "N/A", 65, yPos + 85);
 
     // Ship To / Appointment section
-    doc.roundedRect(310, yPos, 240, 140, 8)
-       .lineWidth(1.5)
-       .stroke(borderColor)
-       .fillOpacity(0.02)
-       .fillAndStroke(accentColor, borderColor);
-    
+    doc.fillOpacity(0.02);
+    doc.roundedRect(310, yPos, 240, 140, 8).fill(accentColor);
     doc.fillOpacity(1);
-    doc.fontSize(11).fillColor(textSecondary).font('Helvetica-Bold')
-       .text('APPOINTMENT DETAILS', 325, yPos + 20);
-    
-    doc.fontSize(13).fillColor(textPrimary).font('Helvetica-Bold')
-       .text(`${order.appointment.firstName} ${order.appointment.lastName}`, 325, yPos + 45);
-    
-    doc.fontSize(9).fillColor(textSecondary).font('Helvetica');
+    doc.roundedRect(310, yPos, 240, 140, 8).lineWidth(1.5).stroke(borderColor);
+
+    doc
+      .fontSize(11)
+      .fillColor(textSecondary)
+      .font("Helvetica-Bold")
+      .text("APPOINTMENT DETAILS", 325, yPos + 20);
+
+    doc
+      .fontSize(13)
+      .fillColor(textPrimary)
+      .font("Helvetica-Bold")
+      .text(
+        `${order.appointment.firstName} ${order.appointment.lastName}`,
+        325,
+        yPos + 45
+      );
+
+    doc.fontSize(9).fillColor(textSecondary).font("Helvetica");
     doc.text(order.appointment.phone, 325, yPos + 68);
     doc.text(order.appointment.email, 325, yPos + 85);
-    
+
     // Appointment date/time with icon
     doc.circle(330, 110 + yPos, 3).fill(accentColor);
-    doc.fontSize(9).fillColor(textPrimary).font('Helvetica-Bold')
-       .text(`${order.appointment.date} • ${order.appointment.time}`, 340, yPos + 105);
+    doc
+      .fontSize(9)
+      .fillColor(textPrimary)
+      .font("Helvetica-Bold")
+      .text(
+        `${order.appointment.date} • ${order.appointment.time}`,
+        340,
+        yPos + 105
+      );
 
     // ==================== ITEMS TABLE ====================
     yPos = 420;
 
-    doc.fontSize(14).fillColor(textPrimary).font('Helvetica-Bold')
-       .text('Items & Description', 50, yPos);
+    doc
+      .fontSize(14)
+      .fillColor(textPrimary)
+      .font("Helvetica-Bold")
+      .text("Items & Description", 50, yPos);
 
     yPos += 35;
 
     // Table header with gradient effect
     doc.rect(50, yPos, 500, 30).fill(brandColor);
-    
+
     // Subtle highlight line
     doc.rect(50, yPos, 500, 3).fill(accentColor);
-    
-    doc.fontSize(9).fillColor('#ffffff').font('Helvetica-Bold');
-    doc.text('ITEM DESCRIPTION', 65, yPos + 11);
-    doc.text('QTY', 320, yPos + 11, { width: 40, align: 'center' });
-    doc.text('UNIT PRICE', 380, yPos + 11, { width: 70, align: 'right' });
-    doc.text('AMOUNT', 470, yPos + 11, { width: 65, align: 'right' });
+
+    doc.fontSize(9).fillColor("#ffffff").font("Helvetica-Bold");
+    doc.text("ITEM DESCRIPTION", 65, yPos + 11);
+    doc.text("QTY", 320, yPos + 11, { width: 40, align: "center" });
+    doc.text("UNIT PRICE", 380, yPos + 11, { width: 70, align: "right" });
+    doc.text("AMOUNT", 470, yPos + 11, { width: 65, align: "right" });
 
     yPos += 30;
 
@@ -639,34 +683,52 @@ const DownloadPDF = async (req, res) => {
       }
 
       // Item name
-      doc.fontSize(10).fillColor(textPrimary).font('Helvetica-Bold')
-         .text(item.name, 65, yPos + 10, { width: 230, lineBreak: false });
+      doc
+        .fontSize(10)
+        .fillColor(textPrimary)
+        .font("Helvetica-Bold")
+        .text(item.name, 65, yPos + 10, { width: 230, lineBreak: false });
 
       // Brand and SKU details
       if (hasDetails) {
-        doc.fontSize(8).fillColor(textSecondary).font('Helvetica');
+        doc.fontSize(8).fillColor(textSecondary).font("Helvetica");
         const details = [];
         if (item.brand) details.push(item.brand);
         if (item.sku) details.push(`SKU: ${item.sku}`);
-        doc.text(details.join(' • '), 65, yPos + 27, { width: 230 });
+        doc.text(details.join(" • "), 65, yPos + 27, { width: 230 });
       }
 
       // Quantity
-      doc.fontSize(10).fillColor(textPrimary).font('Helvetica')
-         .text(item.quantity.toString(), 320, yPos + 10, { width: 40, align: 'center' });
+      doc
+        .fontSize(10)
+        .fillColor(textPrimary)
+        .font("Helvetica")
+        .text(item.quantity.toString(), 320, yPos + 10, {
+          width: 40,
+          align: "center",
+        });
 
       // Unit price
-      doc.text(`$${item.price.toFixed(2)}`, 380, yPos + 10, { width: 70, align: 'right' });
+      doc.text(`$${item.price.toFixed(2)}`, 380, yPos + 10, {
+        width: 70,
+        align: "right",
+      });
 
       // Total
-      doc.font('Helvetica-Bold')
-         .text(`$${itemTotal.toFixed(2)}`, 470, yPos + 10, { width: 65, align: 'right' });
+      doc
+        .font("Helvetica-Bold")
+        .text(`$${itemTotal.toFixed(2)}`, 470, yPos + 10, {
+          width: 65,
+          align: "right",
+        });
 
       // Bottom border
-      doc.strokeColor(borderColor).lineWidth(0.5)
-         .moveTo(50, yPos + rowHeight)
-         .lineTo(550, yPos + rowHeight)
-         .stroke();
+      doc
+        .strokeColor(borderColor)
+        .lineWidth(0.5)
+        .moveTo(50, yPos + rowHeight)
+        .lineTo(550, yPos + rowHeight)
+        .stroke();
 
       yPos += rowHeight;
       rowIndex++;
@@ -685,136 +747,208 @@ const DownloadPDF = async (req, res) => {
     // Summary box with shadow effect
     const summaryBoxX = 330;
     const summaryBoxY = yPos;
-    
+
     // Shadow
-    doc.rect(summaryBoxX + 3, summaryBoxY + 3, 220, 110, 8)
-       .fillOpacity(0.1)
-       .fill('#000000');
-    
+    doc.opacity(0.1);
+    doc
+      .roundedRect(summaryBoxX + 3, summaryBoxY + 3, 220, 110, 8)
+      .fill("#000000");
+    doc.opacity(1);
+
     // Main box
-    doc.rect(summaryBoxX, summaryBoxY, 220, 110, 8)
-       .fillOpacity(1)
-       .fill('#ffffff')
-       .strokeColor(borderColor)
-       .lineWidth(1)
-       .stroke();
+    doc
+      .roundedRect(summaryBoxX, summaryBoxY, 220, 110, 8)
+      .lineWidth(1)
+      .strokeColor(borderColor)
+      .fillColor("#ffffff")
+      .fillAndStroke();
 
     // Subtotal
     yPos += 20;
-    doc.fontSize(10).fillColor(textSecondary).font('Helvetica')
-       .text('Subtotal:', summaryBoxX + 20, yPos);
-    doc.fillColor(textPrimary).font('Helvetica-Bold')
-       .text(`$${order.subtotal.toFixed(2)}`, summaryBoxX + 20, yPos, { 
-         width: 180, 
-         align: 'right' 
-       });
+    doc
+      .fontSize(10)
+      .fillColor(textSecondary)
+      .font("Helvetica")
+      .text("Subtotal:", summaryBoxX + 20, yPos);
+    doc
+      .fillColor(textPrimary)
+      .font("Helvetica-Bold")
+      .text(`$${order.subtotal.toFixed(2)}`, summaryBoxX + 20, yPos, {
+        width: 180,
+        align: "right",
+      });
 
     // Tax (if applicable)
     if (order.tax) {
       yPos += 22;
-      doc.fontSize(10).fillColor(textSecondary).font('Helvetica')
-         .text('Tax:', summaryBoxX + 20, yPos);
-      doc.fillColor(textPrimary).font('Helvetica-Bold')
-         .text(`$${order.tax.toFixed(2)}`, summaryBoxX + 20, yPos, { 
-           width: 180, 
-           align: 'right' 
-         });
+      doc
+        .fontSize(10)
+        .fillColor(textSecondary)
+        .font("Helvetica")
+        .text("Tax:", summaryBoxX + 20, yPos);
+      doc
+        .fillColor(textPrimary)
+        .font("Helvetica-Bold")
+        .text(`$${order.tax.toFixed(2)}`, summaryBoxX + 20, yPos, {
+          width: 180,
+          align: "right",
+        });
     }
 
     // Divider
     yPos += 25;
-    doc.strokeColor(borderColor).lineWidth(1)
-       .moveTo(summaryBoxX + 20, yPos)
-       .lineTo(summaryBoxX + 200, yPos)
-       .stroke();
+    doc
+      .strokeColor(borderColor)
+      .lineWidth(1)
+      .moveTo(summaryBoxX + 20, yPos)
+      .lineTo(summaryBoxX + 200, yPos)
+      .stroke();
 
     // Total with accent background
     yPos += 15;
-    doc.roundedRect(summaryBoxX + 15, yPos - 8, 190, 32, 6)
-       .fill(accentColor)
-       .fillOpacity(0.1)
-       .fillAndStroke(accentColor, accentColor);
-    
-    doc.fillOpacity(1);
-    doc.fontSize(12).fillColor(textPrimary).font('Helvetica-Bold')
-       .text('TOTAL:', summaryBoxX + 25, yPos);
-    doc.fontSize(16).fillColor(accentColor)
-       .text(`$${order.total.toFixed(2)}`, summaryBoxX + 25, yPos, { 
-         width: 170, 
-         align: 'right' 
-       });
+    doc.opacity(0.1);
+    doc.roundedRect(summaryBoxX + 15, yPos - 8, 190, 32, 6).fill(accentColor);
+    doc.opacity(1);
+    doc
+      .roundedRect(summaryBoxX + 15, yPos - 8, 190, 32, 6)
+      .lineWidth(1)
+      .strokeColor(accentColor)
+      .stroke();
+
+    doc
+      .fontSize(12)
+      .fillColor(textPrimary)
+      .font("Helvetica-Bold")
+      .text("TOTAL:", summaryBoxX + 25, yPos);
+    doc
+      .fontSize(16)
+      .fillColor(accentColor)
+      .text(`$${order.total.toFixed(2)}`, summaryBoxX + 25, yPos, {
+        width: 170,
+        align: "right",
+      });
 
     // ==================== PAYMENT INFO ====================
     if (order.payment) {
       yPos += 60;
-      
-      doc.fontSize(12).fillColor(textPrimary).font('Helvetica-Bold')
-         .text('Payment Information', 50, yPos);
-      
+
+      doc
+        .fontSize(12)
+        .fillColor(textPrimary)
+        .font("Helvetica-Bold")
+        .text("Payment Information", 50, yPos);
+
       yPos += 25;
-      
+
       // Payment details box
-      doc.roundedRect(50, yPos, 280, 70, 8)
-         .fill(bgLight)
-         .stroke(borderColor)
-         .fillAndStroke(bgLight, borderColor);
-      
-      doc.fontSize(9).fillColor(textSecondary).font('Helvetica')
-         .text('Payment Method:', 70, yPos + 18);
-      doc.fontSize(10).fillColor(textPrimary).font('Helvetica-Bold')
-         .text(order.payment.method || 'N/A', 180, yPos + 18);
-      
-      doc.fontSize(9).fillColor(textSecondary).font('Helvetica')
-         .text('Payment Status:', 70, yPos + 38);
-      
-      const paymentStatusColor = order.payment.status === 'completed' ? successColor : 
-                                 order.payment.status === 'pending' ? warningColor : dangerColor;
-      doc.fontSize(10).fillColor(paymentStatusColor).font('Helvetica-Bold')
-         .text(order.payment.status.toUpperCase(), 180, yPos + 38);
-      
+      doc
+        .roundedRect(50, yPos, 280, 70, 8)
+        .lineWidth(1)
+        .strokeColor(borderColor)
+        .fillColor(bgLight)
+        .fillAndStroke();
+
+      doc
+        .fontSize(9)
+        .fillColor(textSecondary)
+        .font("Helvetica")
+        .text("Payment Method:", 70, yPos + 18);
+      doc
+        .fontSize(10)
+        .fillColor(textPrimary)
+        .font("Helvetica-Bold")
+        .text(order.payment.method || "N/A", 180, yPos + 18);
+
+      doc
+        .fontSize(9)
+        .fillColor(textSecondary)
+        .font("Helvetica")
+        .text("Payment Status:", 70, yPos + 38);
+
+      const paymentStatusColor =
+        order.payment.status === "completed"
+          ? successColor
+          : order.payment.status === "pending"
+          ? warningColor
+          : dangerColor;
+      doc
+        .fontSize(10)
+        .fillColor(paymentStatusColor)
+        .font("Helvetica-Bold")
+        .text(order.payment.status.toUpperCase(), 180, yPos + 38);
+
       if (order.payment.transactionId) {
-        doc.fontSize(8).fillColor(textSecondary).font('Helvetica')
-           .text(`Transaction ID: ${order.payment.transactionId}`, 70, yPos + 55);
+        doc
+          .fontSize(8)
+          .fillColor(textSecondary)
+          .font("Helvetica")
+          .text(
+            `Transaction ID: ${order.payment.transactionId}`,
+            70,
+            yPos + 55
+          );
       }
     }
 
     // ==================== FOOTER ====================
     const footerY = doc.page.height - 100;
-    
+
     // Footer divider
-    doc.strokeColor(borderColor).lineWidth(1)
-       .moveTo(50, footerY)
-       .lineTo(550, footerY)
-       .stroke();
-    
+    doc
+      .strokeColor(borderColor)
+      .lineWidth(1)
+      .moveTo(50, footerY)
+      .lineTo(550, footerY)
+      .stroke();
+
     // Thank you message
-    doc.fontSize(11).fillColor(textPrimary).font('Helvetica-Bold')
-       .text('Thank you for your business!', 50, footerY + 20, { 
-         align: 'center',
-         width: 500 
-       });
-    
-    doc.fontSize(9).fillColor(textSecondary).font('Helvetica')
-       .text('If you have any questions about this invoice, please contact us', 50, footerY + 40, { 
-         align: 'center',
-         width: 500 
-       });
-    
-    doc.fontSize(8).fillColor(textSecondary)
-       .text('info@yourcompany.com • (555) 123-4567 • www.yourcompany.com', 50, footerY + 58, { 
-         align: 'center',
-         width: 500 
-       });
+    doc
+      .fontSize(11)
+      .fillColor(textPrimary)
+      .font("Helvetica-Bold")
+      .text("Thank you for your business!", 50, footerY + 20, {
+        align: "center",
+        width: 500,
+      });
+
+    doc
+      .fontSize(9)
+      .fillColor(textSecondary)
+      .font("Helvetica")
+      .text(
+        "If you have any questions about this invoice, please contact us",
+        50,
+        footerY + 40,
+        {
+          align: "center",
+          width: 500,
+        }
+      );
+
+    doc
+      .fontSize(8)
+      .fillColor(textSecondary)
+      .text(
+        "info@yourcompany.com • (555) 123-4567 • www.yourcompany.com",
+        50,
+        footerY + 58,
+        {
+          align: "center",
+          width: 500,
+        }
+      );
 
     // Page numbers
     const pages = doc.bufferedPageRange();
     for (let i = 0; i < pages.count; i++) {
       doc.switchToPage(i);
-      doc.fontSize(8).fillColor(textSecondary)
-         .text(`Page ${i + 1} of ${pages.count}`, 50, doc.page.height - 50, {
-           align: 'center',
-           width: 500
-         });
+      doc
+        .fontSize(8)
+        .fillColor(textSecondary)
+        .text(`Page ${i + 1} of ${pages.count}`, 50, doc.page.height - 50, {
+          align: "center",
+          width: 500,
+        });
     }
 
     doc.end();

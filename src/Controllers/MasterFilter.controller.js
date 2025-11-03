@@ -1,319 +1,159 @@
-const mongoose = require("mongoose");
 const ApiResponse = require("../Utils/ApiResponse");
 const ApiError = require("../Utils/ApiError");
 const MasterFilter = require("../Models/MasterFilter.model");
 
-// Create a single master filter document
 const createMasterFilter = async (req, res) => {
   try {
-    // Check if a master filter already exists
-    const existingMasterFilter = await MasterFilter.findOne();
+    const { category, subCategory, values } = req.body;
 
-    if (existingMasterFilter) {
-      return res
-        .status(409)
-        .json(
-          new ApiError(
-            409,
-            "Master filter already exists. Only one master filter document is allowed."
-          )
-        );
+    if (!category || !subCategory || !values) {
+      return res.status(400).json(new ApiError(400, "All fields are required"));
     }
 
-    // Define default empty structures for tyres and wheels
-    const defaultMasterFilter = {
-      tyres: {
-        pattern: [],
-        width: [],
-        profile: [],
-        diameter: [],
-        loadRating: [],
-        speedRating: [],
-      },
-      wheels: {
-        size: [],
-        color: [],
-        diameter: [],
-        fitments: [],
-        staggeredOptions: [],
-      },
-    };
+    const existing = await MasterFilter.findOne({
+      category,
+      subCategory,
+      values,
+    });
+    if (existing) {
+      return res.status(400).json(new ApiError(400, "Filter already exists"));
+    }
 
-    // Create the new master filter
-    const newMasterFilter = new MasterFilter(defaultMasterFilter);
-    const savedMasterFilter = await newMasterFilter.save();
-
-    return res
+    const masterFilter = await MasterFilter.create({
+      category,
+      subCategory,
+      values,
+    });
+    res
       .status(201)
       .json(
-        new ApiResponse(
-          201,
-          savedMasterFilter,
-          "Master filter created successfully"
-        )
+        new ApiResponse(201, masterFilter, "Master filter created successfully")
       );
   } catch (error) {
-    console.error("CreateMasterFilter Error:", error);
-    return res.status(500).json(new ApiError(500, "Internal Server Error"));
+    res.status(500).json({ message: error.message });
   }
 };
 
 const getAllMasterFilters = async (req, res) => {
   try {
-    const { search, page = 1, limit = 10 } = req.query;
+    const { search, category, page = 1, limit = 10 } = req.query;
+    const query = {};
 
-    const filter = {};
-    
     if (search) {
-      const searchRegex = { $regex: search, $options: "i" };
-      filter.$or = [
-        { "tyres.pattern.name": searchRegex },
-        { "tyres.width.name": searchRegex },
-        { "tyres.profile.name": searchRegex },
-        { "tyres.diameter.name": searchRegex },
-        { "tyres.loadRating.name": searchRegex },
-        { "tyres.speedRating.name": searchRegex },
-        { "wheels.size.name": searchRegex },
-        { "wheels.color.name": searchRegex },
-        { "wheels.diameter.name": searchRegex },
-        { "wheels.fitments.name": searchRegex },
-        { "wheels.staggeredOptions.name": searchRegex },
+      query.$or = [
+        { subCategory: { $regex: search, $options: "i" } },
+        { values: { $regex: search, $options: "i" } },
       ];
     }
 
-    const pageNumber = parseInt(page, 10);
-    const limitNumber = parseInt(limit, 10);
-    const skip = (pageNumber - 1) * limitNumber;
+    if (category) query.category = category;
 
-    const items = await MasterFilter.find(filter)
+    const total = await MasterFilter.countDocuments(query);
+
+    const filters = await MasterFilter.find(query)
       .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limitNumber);
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .limit(parseInt(limit));
 
-    const totalItems = await MasterFilter.countDocuments(filter);
-    const totalPages = Math.ceil(totalItems / limitNumber);
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          items: filters,
+          pagination: {
+            total,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            totalPages: Math.ceil(total / limit),
+          },
+        },
+        "Master filters fetched successfully"
+      )
+    );
+  } catch (error) {
+    return res
+      .status(500)
+      .json(new ApiError(500, error.message || "Internal server error"));
+  }
+};
 
-    const pagination = {
-      totalItems,
-      totalPages,
-      currentPage: pageNumber,
-      pageSize: limitNumber,
-    };
+const getMasterFilterById = async (req, res) => {
+  try {
+    const masterFilter = await MasterFilter.findById(req.params.id);
+    if (!masterFilter) {
+      return res.status(404).json(new ApiError(404, "Master filter not found"));
+    }
 
     return res
       .status(200)
       .json(
-        new ApiResponse(
-          200,
-          { items, pagination },
-          "Master filters fetched successfully"
-        )
+        new ApiResponse(200, masterFilter, "Master filter fetched successfully")
       );
   } catch (error) {
-    console.error("GetAllMasterFilters Error:", error);
-    return res.status(500).json(new ApiError(500, "Internal Server Error"));
+    return res
+      .status(500)
+      .json(new ApiError(500, error.message || "Internal server error"));
   }
 };
 
 const updateMasterFilter = async (req, res) => {
   try {
-    const id = req.params?.id;
-    if (!id) {
-      return res
-        .status(400)
-        .json(new ApiError(400, "Master filter ID is required"));
+    const { category, subCategory, values } = req.body;
+
+    if (!category || !subCategory || !values) {
+      return res.status(400).json(new ApiError(400, "All fields are required"));
     }
 
-    if (!mongoose.isValidObjectId(id)) {
-      return res
-        .status(400)
-        .json(new ApiError(400, "Invalid Master filter ID"));
-    }
+    const masterFilter = await MasterFilter.findByIdAndUpdate(
+      req.params.id,
+      { category, subCategory, values },
+      { new: true, runValidators: true }
+    );
 
-    const existing = await MasterFilter.findById(id);
-    if (!existing) {
+    if (!masterFilter) {
       return res.status(404).json(new ApiError(404, "Master filter not found"));
     }
-
-    const { tyres, wheels } = req.body;
-
-    if (!tyres && !wheels) {
-      return res
-        .status(400)
-        .json(
-          new ApiError(
-            400,
-            "At least one of tyres or wheels must be provided for update"
-          )
-        );
-    }
-
-    // Helper to merge options (avoid duplicates)
-    const mergeOptions = (existingArray = [], newArray = []) => {
-      const existingNames = new Set(
-        existingArray.map((opt) => opt.name.toLowerCase().trim())
-      );
-      const merged = [
-        ...existingArray,
-        ...newArray.filter(
-          (opt) => opt.name && !existingNames.has(opt.name.toLowerCase().trim())
-        ),
-      ];
-      return merged;
-    };
-
-    // --- Update tyres ---
-    if (tyres) {
-      const tyreFields = [
-        "pattern",
-        "width",
-        "profile",
-        "diameter",
-        "loadRating",
-        "speedRating",
-      ];
-
-      for (const field of tyreFields) {
-        if (tyres[field]) {
-          if (!Array.isArray(tyres[field])) {
-            return res
-              .status(400)
-              .json(new ApiError(400, `Tyres ${field} must be an array`));
-          }
-
-          // Validate each option has name
-          for (const option of tyres[field]) {
-            if (!option.name) {
-              return res
-                .status(400)
-                .json(
-                  new ApiError(
-                    400,
-                    `Name is required for each ${field} option in tyres`
-                  )
-                );
-            }
-          }
-
-          existing.tyres[field] = mergeOptions(
-            existing.tyres[field],
-            tyres[field]
-          );
-        }
-      }
-    }
-
-    // --- Update wheels ---
-    if (wheels) {
-      const wheelFields = [
-        "size",
-        "color",
-        "diameter",
-        "fitments",
-        "staggeredOptions",
-      ];
-
-      for (const field of wheelFields) {
-        if (wheels[field]) {
-          if (!Array.isArray(wheels[field])) {
-            return res
-              .status(400)
-              .json(new ApiError(400, `Wheels ${field} must be an array`));
-          }
-
-          for (const option of wheels[field]) {
-            if (!option.name) {
-              return res
-                .status(400)
-                .json(
-                  new ApiError(
-                    400,
-                    `Name is required for each ${field} option in wheels`
-                  )
-                );
-            }
-          }
-
-          existing.wheels[field] = mergeOptions(
-            existing.wheels[field],
-            wheels[field]
-          );
-        }
-      }
-    }
-
-    const saved = await existing.save();
 
     return res
       .status(200)
       .json(
-        new ApiResponse(
-          200,
-          saved,
-          "Master filter updated successfully (options merged)"
-        )
+        new ApiResponse(200, masterFilter, "Master filter updated successfully")
       );
   } catch (error) {
-    console.error("UpdateMasterFilter Error:", error);
-    return res.status(500).json(new ApiError(500, "Internal Server Error"));
+    return res
+      .status(500)
+      .json(new ApiError(500, error.message || "Internal server error"));
   }
 };
 
 const deleteMasterFilter = async (req, res) => {
   try {
     const { id } = req.params;
-    const { category, field, optionId } = req.body;
-
-    if (!id || !category || !field || !optionId) {
+    if (!id) {
       return res
         .status(400)
-        .json(
-          new ApiError(400, "id, category, field, and optionId are required")
-        );
+        .json(new ApiError(400, "Master filter id is required"));
     }
 
-    if (!mongoose.isValidObjectId(id) || !mongoose.isValidObjectId(optionId)) {
-      return res
-        .status(400)
-        .json(new ApiError(400, "Invalid Master filter or Option ID format"));
-    }
-
-    // Build dynamic path for the array field to update
-    const path = `${category}.${field}`;
-
-    // Check if MasterFilter exists
-    const existing = await MasterFilter.findById(id);
-    if (!existing) {
+    const masterFilter = await MasterFilter.findByIdAndDelete(id);
+    if (!masterFilter) {
       return res.status(404).json(new ApiError(404, "Master filter not found"));
     }
 
-    // Use MongoDB $pull operator to remove the object by its _id
-    const updated = await MasterFilter.findByIdAndUpdate(
-      id,
-      { $pull: { [path]: { _id: optionId } } },
-      { new: true }
-    );
-
     return res
       .status(200)
-      .json(
-        new ApiResponse(
-          200,
-          updated,
-          `Option deleted successfully from ${category}.${field}`
-        )
-      );
+      .json(new ApiResponse(200, null, "Master filter deleted successfully"));
   } catch (error) {
-    console.error("DeleteMasterFilterOption Error:", error);
     return res
       .status(500)
-      .json(new ApiError(500, "Internal Server Error", error.message));
+      .json(new ApiError(500, error.message || "Internal server error"));
   }
 };
 
 module.exports = {
   createMasterFilter,
   getAllMasterFilters,
+  getMasterFilterById,
   updateMasterFilter,
   deleteMasterFilter,
 };

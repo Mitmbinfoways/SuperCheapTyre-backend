@@ -219,9 +219,6 @@ const updateBlog = async (req, res) => {
         // Process item images - all uploaded files are in itemImages array
         const itemImageFiles = req.files?.itemImages || [];
 
-        console.log("Item image files:", itemImageFiles);
-        console.log("Parsed items:", parsedItems);
-
         // Collect old item images before updating
         const oldItemImages = blog.items.map((item) => item.image);
 
@@ -277,9 +274,6 @@ const updateBlog = async (req, res) => {
             }
           }
         });
-
-        console.log("Updated items:", updatedItems);
-
         if (updatedItems.length > 0) blog.items = updatedItems;
       }
 
