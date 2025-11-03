@@ -488,6 +488,9 @@ const DashboardCount = async (req, res) => {
       orderCount,
       holidayCount,
       employeeCount,
+      brandCount,
+      bannerCount,
+      blogCount,
     ] = await Promise.all([
       Product.countDocuments({ isDelete: false, isActive: true }),
       Appointment.countDocuments(),
