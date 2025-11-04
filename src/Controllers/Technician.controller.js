@@ -68,10 +68,12 @@ const createTechnician = async (req, res) => {
 
 const getAllTechnician = async (req, res) => {
   try {
-    const { search, page, limit } = req.query;
-    const filter = {};
+    const { search, page, limit, isActive } = req.query;
+    const filter = { isDelete: false };
 
-    filter.isDelete = false;
+    if (typeof isActive !== "undefined") {
+      filter.isActive = isActive === "true";
+    }
     if (search && search.trim() !== "") {
       filter.$or = [
         { firstName: { $regex: search, $options: "i" } },

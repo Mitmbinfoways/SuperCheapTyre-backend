@@ -6,7 +6,7 @@ const ApiResponse = require("../Utils/ApiResponse");
 
 const getAllBlogs = async (req, res) => {
   try {
-    let { page = 1, limit = 10, search, isActive } = req.query;
+    let { page = 1, limit = 10, search, isActive, formate } = req.query;
 
     page = parseInt(page);
     limit = parseInt(limit);
@@ -22,6 +22,13 @@ const getAllBlogs = async (req, res) => {
 
     if (typeof isActive !== "undefined") {
       filter.isActive = isActive === "true" || isActive === true;
+    }
+
+    if (
+      formate &&
+      ["carousel", "card", "alternative", "center"].includes(formate)
+    ) {
+      filter.formate = formate;
     }
 
     const totalBlogs = await Blog.countDocuments(filter);
