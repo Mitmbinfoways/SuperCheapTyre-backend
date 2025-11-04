@@ -60,17 +60,55 @@ const createHoliday = async (req, res) => {
 
 const getHolidays = async (req, res) => {
   try {
-    const { from, to, search, page, limit } = req.query;
+    const { search, page, limit } = req.query;
     const filter = {};
 
-    if (from || to) {
-      filter.date = {};
-      if (from) filter.date.$gte = new Date(from);
-      if (to) filter.date.$lte = new Date(to);
-    }
-
     if (search) {
-      filter.reason = { $regex: search, $options: "i" };
+      const fullDateRegex = /^(\d{2})[-/](\d{2})[-/](\d{4})$/;
+      const dayMonthRegex = /^(\d{2})[-/](\d{2})$/;
+      const dayRegex = /^(\d{2})$/;
+
+      if (fullDateRegex.test(search)) {
+        const [_, day, month, year] = search.match(fullDateRegex);
+        const parsedDate = new Date(`${year}-${month}-${day}T00:00:00.000Z`);
+        if (isNaN(parsedDate)) {
+          return res.status(400).json(new ApiError(400, "Invalid date format"));
+        }
+
+        const startDate = new Date(parsedDate);
+        const endDate = new Date(parsedDate);
+        endDate.setDate(startDate.getDate() + 1);
+
+        filter.date = { $gte: startDate, $lt: endDate };
+      } else if (dayMonthRegex.test(search)) {
+        const [_, day, month] = search.match(dayMonthRegex);
+        // Validate day and month
+        const dayNum = parseInt(day, 10);
+        const monthNum = parseInt(month, 10);
+        if (dayNum < 1 || dayNum > 31 || monthNum < 1 || monthNum > 12) {
+          return res
+            .status(400)
+            .json(new ApiError(400, "Invalid day or month"));
+        }
+
+        // Use aggregation to match day and month
+        filter.$expr = {
+          $and: [
+            { $eq: [{ $dayOfMonth: "$date" }, dayNum] },
+            { $eq: [{ $month: "$date" }, monthNum] },
+          ],
+        };
+      } else if (dayRegex.test(search)) {
+        const dayNum = parseInt(search, 10);
+        if (dayNum < 1 || dayNum > 31) {
+          return res.status(400).json(new ApiError(400, "Invalid day"));
+        }
+
+        // Use aggregation to match day
+        filter.$expr = { $eq: [{ $dayOfMonth: "$date" }, dayNum] };
+      } else {
+        filter.reason = { $regex: search, $options: "i" };
+      }
     }
 
     let items;
@@ -79,6 +117,17 @@ const getHolidays = async (req, res) => {
     if (page && limit) {
       const pageNumber = parseInt(page, 10);
       const limitNumber = parseInt(limit, 10);
+      if (
+        isNaN(pageNumber) ||
+        isNaN(limitNumber) ||
+        pageNumber < 1 ||
+        limitNumber < 1
+      ) {
+        return res
+          .status(400)
+          .json(new ApiError(400, "Invalid page or limit parameters"));
+      }
+
       const skip = (pageNumber - 1) * limitNumber;
 
       items = await Holiday.find(filter)
@@ -109,7 +158,7 @@ const getHolidays = async (req, res) => {
         )
       );
   } catch (error) {
-    console.log(error);
+    console.error(error);
     return res.status(500).json(new ApiError(500, "Internal Server Error"));
   }
 };
