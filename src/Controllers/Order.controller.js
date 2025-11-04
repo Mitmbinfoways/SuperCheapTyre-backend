@@ -515,17 +515,28 @@ const DownloadPDF = async (req, res) => {
     doc.opacity(1);
 
     // Company logo area
-    doc.roundedRect(50, 35, 65, 65, 10).fill("#ffffff");
-    doc
-      .fontSize(28)
-      .fillColor(accentColor)
-      .font("Helvetica-Bold")
-      .text("YB", 50, 53, { width: 65, align: "center" });
-    doc
-      .fontSize(7)
-      .fillColor(textSecondary)
-      .font("Helvetica")
-      .text("YOUR BRAND", 50, 105, { width: 65, align: "center" });
+    try {
+      // Use a more robust path resolution
+      const logoPath = path.resolve(__dirname, "../../public/logo_light.png");
+
+      // Check if file exists before trying to load it
+      if (fs.existsSync(logoPath)) {
+        doc.image(logoPath, 40, 65, { width: 80 });
+      } else {
+        throw new Error(`Logo file not found at path: ${logoPath}`);
+      }
+    } catch (err) {
+      console.warn(
+        "⚠️ Logo not loaded, using fallback text instead:",
+        err.message
+      );
+      doc.roundedRect(50, 35, 65, 65, 10).fill("#ffffff");
+      doc
+        .fontSize(24)
+        .fillColor(accentColor)
+        .font("Helvetica-Bold")
+        .text("YB", 50, 53, { width: 65, align: "center" });
+    }
 
     // Company information - left aligned
     doc.fontSize(12).fillColor("#ffffff").font("Helvetica-Bold");
@@ -578,12 +589,12 @@ const DownloadPDF = async (req, res) => {
         : dangerColor;
     const statusText = order.payment?.status?.toUpperCase() || "PENDING";
 
-    doc.roundedRect(428, 130, 122, 30, 15).fill(statusColor);
-    doc
-      .fontSize(11)
-      .fillColor("#ffffff")
-      .font("Helvetica-Bold")
-      .text(statusText, 428, 140, { align: "center", width: 122 });
+    // doc.roundedRect(428, 130, 122, 30, 15).fill(statusColor);
+    // doc
+    //   .fontSize(11)
+    //   .fillColor("#ffffff")
+    //   .font("Helvetica-Bold")
+    //   .text(statusText, 428, 140, { align: "center", width: 122 });
 
     // ==================== CUSTOMER DETAILS SECTION ====================
     let yPos = 220;
@@ -639,16 +650,15 @@ const DownloadPDF = async (req, res) => {
     // Appointment date/time with icon
     doc.circle(330, yPos + 106, 3).fill(accentColor);
     
-    // Format the appointment date properly
-    const formattedAppointmentDate = order.appointment.date 
+    const formattedAppointmentDate = order.appointment.date
       ? new Date(order.appointment.date).toLocaleDateString("en-US", {
           weekday: "short",
           year: "numeric",
           month: "short",
-          day: "numeric"
+          day: "numeric",
         })
       : "N/A";
-      
+
     doc
       .fontSize(9.5)
       .fillColor(textPrimary)
@@ -769,8 +779,8 @@ const DownloadPDF = async (req, res) => {
     // Summary box
     doc
       .roundedRect(summaryBoxX, summaryBoxY, 225, 115, 10)
-      .lineWidth(1.5)
-      .strokeColor(borderColor)
+      // .lineWidth(1.5)
+      // .strokeColor(borderColor)
       .fillColor("#ffffff")
       .fillAndStroke();
 
@@ -820,11 +830,11 @@ const DownloadPDF = async (req, res) => {
     doc.opacity(0.08);
     doc.roundedRect(summaryBoxX + 17, yPos - 9, 191, 34, 8).fill(accentColor);
     doc.opacity(1);
-    doc
-      .roundedRect(summaryBoxX + 17, yPos - 9, 191, 34, 8)
-      .lineWidth(1.5)
-      .strokeColor(accentColor)
-      .stroke();
+    // doc
+    //   .roundedRect(summaryBoxX + 17, yPos - 9, 191, 34, 8)
+    //   // .lineWidth(1.5)
+    //   // .strokeColor(accentColor)
+    //   .stroke();
 
     doc
       .fontSize(13)
@@ -902,7 +912,7 @@ const DownloadPDF = async (req, res) => {
     }
 
     // ==================== FOOTER ====================
-    const footerY = doc.page.height - 95;
+    const footerY = doc.page.height - 70;
 
     // Footer divider
     doc
@@ -917,7 +927,7 @@ const DownloadPDF = async (req, res) => {
       .fontSize(12)
       .fillColor(textPrimary)
       .font("Helvetica-Bold")
-      .text("Thank you for your business!", 50, footerY + 22, {
+      .text("Thank you for your business!", 50, footerY + 18, {
         align: "center",
         width: 500,
       });
@@ -929,7 +939,7 @@ const DownloadPDF = async (req, res) => {
       .text(
         "If you have any questions about this invoice, please contact us",
         50,
-        footerY + 42,
+        footerY + 38,
         {
           align: "center",
           width: 500,
@@ -942,25 +952,12 @@ const DownloadPDF = async (req, res) => {
       .text(
         "info@yourcompany.com • (555) 123-4567 • www.yourcompany.com",
         50,
-        footerY + 60,
+        footerY + 56,
         {
           align: "center",
           width: 500,
         }
       );
-
-    // Page numbers
-    const pages = doc.bufferedPageRange();
-    for (let i = 0; i < pages.count; i++) {
-      doc.switchToPage(i);
-      doc
-        .fontSize(8)
-        .fillColor(textSecondary)
-        .text(`Page ${i + 1} of ${pages.count}`, 50, doc.page.height - 48, {
-          align: "center",
-          width: 500,
-        });
-    }
 
     doc.end();
   } catch (error) {

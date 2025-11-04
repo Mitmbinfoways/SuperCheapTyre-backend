@@ -68,8 +68,38 @@ const getHolidays = async (req, res) => {
       const dayMonthRegex = /^(\d{2})[-/](\d{2})$/;
       const dayRegex = /^(\d{2})$/;
 
-      if (fullDateRegex.test(search)) {
-        const [_, day, month, year] = search.match(fullDateRegex);
+      const monthMap = {
+        jan: 1,
+        january: 1,
+        feb: 2,
+        february: 2,
+        mar: 3,
+        march: 3,
+        apr: 4,
+        april: 4,
+        may: 5,
+        jun: 6,
+        june: 6,
+        jul: 7,
+        july: 7,
+        aug: 8,
+        august: 8,
+        sep: 9,
+        sept: 9,
+        september: 9,
+        oct: 10,
+        october: 10,
+        nov: 11,
+        november: 11,
+        dec: 12,
+        december: 12,
+      };
+
+      const lowerSearch = search.trim().toLowerCase();
+
+      if (fullDateRegex.test(lowerSearch)) {
+        // Full date match (dd-mm-yyyy)
+        const [_, day, month, year] = lowerSearch.match(fullDateRegex);
         const parsedDate = new Date(`${year}-${month}-${day}T00:00:00.000Z`);
         if (isNaN(parsedDate)) {
           return res.status(400).json(new ApiError(400, "Invalid date format"));
@@ -80,9 +110,8 @@ const getHolidays = async (req, res) => {
         endDate.setDate(startDate.getDate() + 1);
 
         filter.date = { $gte: startDate, $lt: endDate };
-      } else if (dayMonthRegex.test(search)) {
-        const [_, day, month] = search.match(dayMonthRegex);
-        // Validate day and month
+      } else if (dayMonthRegex.test(lowerSearch)) {
+        const [_, day, month] = lowerSearch.match(dayMonthRegex);
         const dayNum = parseInt(day, 10);
         const monthNum = parseInt(month, 10);
         if (dayNum < 1 || dayNum > 31 || monthNum < 1 || monthNum > 12) {
@@ -91,22 +120,27 @@ const getHolidays = async (req, res) => {
             .json(new ApiError(400, "Invalid day or month"));
         }
 
-        // Use aggregation to match day and month
         filter.$expr = {
           $and: [
             { $eq: [{ $dayOfMonth: "$date" }, dayNum] },
             { $eq: [{ $month: "$date" }, monthNum] },
           ],
         };
-      } else if (dayRegex.test(search)) {
-        const dayNum = parseInt(search, 10);
+      } else if (dayRegex.test(lowerSearch)) {
+        // Match by day only (dd)
+        const dayNum = parseInt(lowerSearch, 10);
         if (dayNum < 1 || dayNum > 31) {
           return res.status(400).json(new ApiError(400, "Invalid day"));
         }
 
-        // Use aggregation to match day
         filter.$expr = { $eq: [{ $dayOfMonth: "$date" }, dayNum] };
+      } else if (monthMap[lowerSearch]) {
+        // Match by month name (jan, january, dec, december, etc.)
+        const monthNum = monthMap[lowerSearch];
+
+        filter.$expr = { $eq: [{ $month: "$date" }, monthNum] };
       } else {
+        // Match by reason (fallback)
         filter.reason = { $regex: search, $options: "i" };
       }
     }

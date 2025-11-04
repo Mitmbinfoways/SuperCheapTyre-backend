@@ -92,7 +92,6 @@ const createBanner = async (req, res) => {
   }
 };
 
-// Update a banner
 const updateBanner = async (req, res) => {
   try {
     const { id } = req.params;
@@ -103,11 +102,29 @@ const updateBanner = async (req, res) => {
       return res.status(404).json(new ApiError(404, "Banner not found"));
     }
 
-    // Update images if provided
+    if (
+      typeof isActive !== "undefined" &&
+      (isActive === false ||
+        isActive === "false" ||
+        isActive === 0 ||
+        isActive === "0")
+    ) {
+      const totalBanners = await Banner.countDocuments();
+      if (totalBanners === 1) {
+        return res
+          .status(400)
+          .json(
+            new ApiError(
+              400,
+              "Cannot deactivate the only banner. At least one banner must remain active."
+            )
+          );
+      }
+    }
+
     if (req.files) {
       if (req.files["laptopImage"]) {
         const laptopImageFile = req.files["laptopImage"][0];
-        // Delete old image if exists
         if (banner.laptopImage) {
           const oldImagePath = path.join(
             __dirname,
@@ -123,7 +140,6 @@ const updateBanner = async (req, res) => {
 
       if (req.files["mobileImage"]) {
         const mobileImageFile = req.files["mobileImage"][0];
-        // Delete old image if exists
         if (banner.mobileImage) {
           const oldImagePath = path.join(
             __dirname,
@@ -188,7 +204,20 @@ const deleteBanner = async (req, res) => {
       return res.status(404).json(new ApiError(404, "Banner not found"));
     }
 
-    // Delete images from filesystem
+    const totalBanners = await Banner.countDocuments({
+      isDelete: { $ne: true },
+    });
+    if (totalBanners === 1) {
+      return res
+        .status(400)
+        .json(
+          new ApiError(
+            400,
+            "You cannot delete this banner because at least one banner must remain active in the system."
+          )
+        );
+    }
+
     if (banner.laptopImage) {
       const laptopImagePath = path.join(
         __dirname,
@@ -211,7 +240,6 @@ const deleteBanner = async (req, res) => {
       }
     }
 
-    // Soft delete
     banner.isDelete = true;
     await banner.save();
 
