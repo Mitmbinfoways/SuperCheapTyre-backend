@@ -28,18 +28,18 @@ const uploadBannerImages = multer({ storage: bannerStorage });
 // Get all active banners
 const getAllBanners = async (req, res) => {
   try {
-    const banners = await Banner.find({ isActive: true, isDelete: false })
-      .sort({ createdAt: -1 });
+    const { isActive } = req.query;
+
+    const filter = { isDelete: false };
+    if (isActive !== undefined) {
+      filter.isActive = isActive === "true";
+    }
+
+    const banners = await Banner.find(filter).sort({ createdAt: -1 });
 
     return res
       .status(200)
-      .json(
-        new ApiResponse(
-          200,
-          banners,
-          "Banners fetched successfully"
-        )
-      );
+      .json(new ApiResponse(200, banners, "Banners fetched successfully"));
   } catch (error) {
     console.error("getAllBanners Error:", error);
     return res.status(500).json(new ApiError(500, "Internal Server Error"));
@@ -50,22 +50,21 @@ const getAllBanners = async (req, res) => {
 const createBanner = async (req, res) => {
   try {
     const { isActive } = req.body;
-    
+
     // Check if files are uploaded
     if (!req.files || Object.keys(req.files).length === 0) {
       return res
         .status(400)
-        .json(
-          new ApiError(
-            400,
-            "Both laptop and mobile images are required"
-          )
-        );
+        .json(new ApiError(400, "Both laptop and mobile images are required"));
     }
 
     // Get the file paths from multer
-    const laptopImageFile = req.files['laptopImage'] ? req.files['laptopImage'][0] : null;
-    const mobileImageFile = req.files['mobileImage'] ? req.files['mobileImage'][0] : null;
+    const laptopImageFile = req.files["laptopImage"]
+      ? req.files["laptopImage"][0]
+      : null;
+    const mobileImageFile = req.files["mobileImage"]
+      ? req.files["mobileImage"][0]
+      : null;
 
     if (!laptopImageFile || !mobileImageFile) {
       return res
@@ -81,7 +80,7 @@ const createBanner = async (req, res) => {
     const banner = await Banner.create({
       laptopImage: `/Banners/${laptopImageFile.filename}`,
       mobileImage: `/Banners/${mobileImageFile.filename}`,
-      isActive: isActive === 'true' || isActive === true || true, // Default to active if not specified
+      isActive: isActive === "true" || isActive === true || true, // Default to active if not specified
     });
 
     return res
@@ -106,23 +105,31 @@ const updateBanner = async (req, res) => {
 
     // Update images if provided
     if (req.files) {
-      if (req.files['laptopImage']) {
-        const laptopImageFile = req.files['laptopImage'][0];
+      if (req.files["laptopImage"]) {
+        const laptopImageFile = req.files["laptopImage"][0];
         // Delete old image if exists
         if (banner.laptopImage) {
-          const oldImagePath = path.join(__dirname, "../../public", banner.laptopImage);
+          const oldImagePath = path.join(
+            __dirname,
+            "../../public",
+            banner.laptopImage
+          );
           if (fs.existsSync(oldImagePath)) {
             fs.unlinkSync(oldImagePath);
           }
         }
         banner.laptopImage = `/Banners/${laptopImageFile.filename}`;
       }
-      
-      if (req.files['mobileImage']) {
-        const mobileImageFile = req.files['mobileImage'][0];
+
+      if (req.files["mobileImage"]) {
+        const mobileImageFile = req.files["mobileImage"][0];
         // Delete old image if exists
         if (banner.mobileImage) {
-          const oldImagePath = path.join(__dirname, "../../public", banner.mobileImage);
+          const oldImagePath = path.join(
+            __dirname,
+            "../../public",
+            banner.mobileImage
+          );
           if (fs.existsSync(oldImagePath)) {
             fs.unlinkSync(oldImagePath);
           }
@@ -132,7 +139,8 @@ const updateBanner = async (req, res) => {
     }
 
     if (typeof isActive !== "undefined") {
-      banner.isActive = isActive === 'true' || isActive === true || isActive === 1;
+      banner.isActive =
+        isActive === "true" || isActive === true || isActive === 1;
     }
 
     await banner.save();
@@ -182,14 +190,22 @@ const deleteBanner = async (req, res) => {
 
     // Delete images from filesystem
     if (banner.laptopImage) {
-      const laptopImagePath = path.join(__dirname, "../../public", banner.laptopImage);
+      const laptopImagePath = path.join(
+        __dirname,
+        "../../public",
+        banner.laptopImage
+      );
       if (fs.existsSync(laptopImagePath)) {
         fs.unlinkSync(laptopImagePath);
       }
     }
 
     if (banner.mobileImage) {
-      const mobileImagePath = path.join(__dirname, "../../public", banner.mobileImage);
+      const mobileImagePath = path.join(
+        __dirname,
+        "../../public",
+        banner.mobileImage
+      );
       if (fs.existsSync(mobileImagePath)) {
         fs.unlinkSync(mobileImagePath);
       }
@@ -214,5 +230,5 @@ module.exports = {
   createBanner,
   updateBanner,
   deleteBanner,
-  uploadBannerImages
+  uploadBannerImages,
 };
