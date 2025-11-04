@@ -33,6 +33,7 @@ const getAllProducts = async (req, res) => {
       diameter,
       search,
       sortBy,
+      stock,
       page = 1,
       limit = 10,
     } = req.query;
@@ -83,6 +84,10 @@ const getAllProducts = async (req, res) => {
         $regex: staggeredOptions,
         $options: "i",
       };
+
+    if (stock === "low-stock") {
+      filter.stock = { $lte: 5 };
+    }
 
     if (search) {
       const searchRegex = { $regex: search, $options: "i" };
