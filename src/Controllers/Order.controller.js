@@ -493,63 +493,66 @@ const DownloadPDF = async (req, res) => {
 
     doc.pipe(res);
 
-    // Color palette
-    const brandColor = "#0f172a"; // Dark blue-gray
-    const accentColor = "#3b82f6"; // Bright blue
-    const successColor = "#10b981"; // Green
-    const warningColor = "#f59e0b"; // Orange
-    const dangerColor = "#ef4444"; // Red
-    const textPrimary = "#1e293b"; // Dark gray
-    const textSecondary = "#64748b"; // Medium gray
-    const borderColor = "#e2e8f0"; // Light gray
-    const bgLight = "#f8fafc"; // Very light gray
+    // Professional color palette
+    const brandColor = "#0f172a"; // Dark slate
+    const accentColor = "#3b82f6"; // Professional blue
+    const successColor = "#10b981"; // Success green
+    const warningColor = "#f59e0b"; // Warning orange
+    const dangerColor = "#ef4444"; // Error red
+    const textPrimary = "#1e293b"; // Dark text
+    const textSecondary = "#64748b"; // Medium text
+    const borderColor = "#e2e8f0"; // Subtle border
+    const bgLight = "#f8fafc"; // Light background
 
     // ==================== HEADER SECTION ====================
-    // Gradient header background
-    doc.rect(0, 0, doc.page.width, 200).fill(brandColor);
+    // Modern gradient header
+    doc.rect(0, 0, doc.page.width, 180).fill(brandColor);
 
-    // Add decorative shapes
-    doc.opacity(0.5);
-    doc.circle(500, 50, 80).fill("#1e293b");
-    doc.circle(520, 120, 60).fill("#334155");
+    // Subtle geometric accent
+    doc.opacity(0.4);
+    doc.circle(500, 40, 70).fill("#1e293b");
+    doc.circle(515, 100, 55).fill("#334155");
     doc.opacity(1);
 
-    // Logo placeholder
-    doc.roundedRect(50, 40, 60, 60, 8).fill("#ffffff");
+    // Company logo area
+    doc.roundedRect(50, 35, 65, 65, 10).fill("#ffffff");
     doc
-      .fontSize(24)
+      .fontSize(28)
       .fillColor(accentColor)
       .font("Helvetica-Bold")
-      .text("YB", 58, 60, { width: 44, align: "center" });
+      .text("YB", 50, 53, { width: 65, align: "center" });
     doc
-      .fontSize(8)
+      .fontSize(7)
       .fillColor(textSecondary)
-      .text("YOUR BRAND", 50, 105, { width: 60, align: "center" });
+      .font("Helvetica")
+      .text("YOUR BRAND", 50, 105, { width: 65, align: "center" });
 
-    // Company info
-    doc.fontSize(10).fillColor("#ffffff").font("Helvetica");
-    doc.text("Super Cheap Tyres", 130, 50);
-    doc.fontSize(8).fillColor("#cbd5e1");
-    doc.text("123 Business Street, Suite 100", 130, 68);
-    doc.text("City, State 12345", 130, 82);
-    doc.text("Phone: (555) 123-4567", 130, 96);
-    doc.text("Email: info@yourcompany.com", 130, 110);
+    // Company information - left aligned
+    doc.fontSize(12).fillColor("#ffffff").font("Helvetica-Bold");
+    doc.text("Super Cheap Tyres", 135, 45);
 
-    // Invoice title and info (right aligned)
+    doc.fontSize(8.5).fillColor("#cbd5e1").font("Helvetica");
+    doc.text("123 Business Street, Suite 100", 135, 66);
+    doc.text("City, State 12345", 135, 80);
+    doc.text("Phone: (555) 123-4567", 135, 94);
+    doc.text("Email: info@yourcompany.com", 135, 108);
+
+    // Invoice title - right aligned
     doc
-      .fontSize(32)
+      .fontSize(38)
       .fillColor("#ffffff")
       .font("Helvetica-Bold")
-      .text("INVOICE", 350, 50, { align: "right", width: 200 });
+      .text("INVOICE", 320, 42, { align: "right", width: 230 });
 
-    doc.fontSize(10).fillColor("#cbd5e1").font("Helvetica");
+    // Invoice details - right aligned
+    doc.fontSize(9.5).fillColor("#cbd5e1").font("Helvetica");
     doc.text(
       `Invoice #: INV-${order._id.toString().slice(-8).toUpperCase()}`,
-      350,
-      95,
+      320,
+      88,
       {
         align: "right",
-        width: 200,
+        width: 230,
       }
     );
 
@@ -561,12 +564,12 @@ const DownloadPDF = async (req, res) => {
         day: "numeric",
       }
     );
-    doc.text(`Date: ${formattedDate}`, 350, 110, {
+    doc.text(`Date: ${formattedDate}`, 320, 103, {
       align: "right",
-      width: 200,
+      width: 230,
     });
 
-    // Status badge
+    // Payment status badge
     const statusColor =
       order.payment?.status === "completed"
         ? successColor
@@ -575,154 +578,163 @@ const DownloadPDF = async (req, res) => {
         : dangerColor;
     const statusText = order.payment?.status?.toUpperCase() || "PENDING";
 
-    doc.roundedRect(445, 135, 105, 25, 12).fill(statusColor);
+    doc.roundedRect(428, 130, 122, 30, 15).fill(statusColor);
     doc
-      .fontSize(10)
+      .fontSize(11)
       .fillColor("#ffffff")
       .font("Helvetica-Bold")
-      .text(statusText, 445, 143, { align: "center", width: 105 });
+      .text(statusText, 428, 140, { align: "center", width: 122 });
 
-    // ==================== BILL TO / SHIP TO SECTION ====================
-    let yPos = 240;
+    // ==================== CUSTOMER DETAILS SECTION ====================
+    let yPos = 220;
 
-    // Bill To section
-    doc.fillOpacity(0.02);
-    doc.roundedRect(50, yPos, 240, 140, 8).fill(accentColor);
-    doc.fillOpacity(1);
-    doc.roundedRect(50, yPos, 240, 140, 8).lineWidth(1.5).stroke(borderColor);
+    // Bill To card
+    doc.opacity(0.03);
+    doc.roundedRect(50, yPos, 245, 130, 10).fill(accentColor);
+    doc.opacity(1);
+    doc.roundedRect(50, yPos, 245, 130, 10).lineWidth(1.5).stroke(borderColor);
 
     doc
-      .fontSize(11)
+      .fontSize(10)
       .fillColor(textSecondary)
       .font("Helvetica-Bold")
-      .text("BILL TO", 65, yPos + 20);
-
-    doc
-      .fontSize(13)
-      .fillColor(textPrimary)
-      .font("Helvetica-Bold")
-      .text(order.customer.name, 65, yPos + 45);
-
-    doc.fontSize(9).fillColor(textSecondary).font("Helvetica");
-    doc.text(order.customer.phone, 65, yPos + 68);
-    doc.text(order.customer.email || "N/A", 65, yPos + 85);
-
-    // Ship To / Appointment section
-    doc.fillOpacity(0.02);
-    doc.roundedRect(310, yPos, 240, 140, 8).fill(accentColor);
-    doc.fillOpacity(1);
-    doc.roundedRect(310, yPos, 240, 140, 8).lineWidth(1.5).stroke(borderColor);
-
-    doc
-      .fontSize(11)
-      .fillColor(textSecondary)
-      .font("Helvetica-Bold")
-      .text("APPOINTMENT DETAILS", 325, yPos + 20);
-
-    doc
-      .fontSize(13)
-      .fillColor(textPrimary)
-      .font("Helvetica-Bold")
-      .text(
-        `${order.appointment.firstName} ${order.appointment.lastName}`,
-        325,
-        yPos + 45
-      );
-
-    doc.fontSize(9).fillColor(textSecondary).font("Helvetica");
-    doc.text(order.appointment.phone, 325, yPos + 68);
-    doc.text(order.appointment.email, 325, yPos + 85);
-
-    // Appointment date/time with icon
-    doc.circle(330, 110 + yPos, 3).fill(accentColor);
-    doc
-      .fontSize(9)
-      .fillColor(textPrimary)
-      .font("Helvetica-Bold")
-      .text(
-        `${order.appointment.date} • ${order.appointment.time}`,
-        340,
-        yPos + 105
-      );
-
-    // ==================== ITEMS TABLE ====================
-    yPos = 420;
+      .text("BILL TO", 70, yPos + 18);
 
     doc
       .fontSize(14)
       .fillColor(textPrimary)
       .font("Helvetica-Bold")
+      .text(order.customer.name, 70, yPos + 42);
+
+    doc.fontSize(9.5).fillColor(textSecondary).font("Helvetica");
+    doc.text(order.customer.phone, 70, yPos + 66);
+    doc.text(order.customer.email || "N/A", 70, yPos + 84);
+
+    // Appointment Details card
+    doc.opacity(0.03);
+    doc.roundedRect(305, yPos, 245, 130, 10).fill(accentColor);
+    doc.opacity(1);
+    doc.roundedRect(305, yPos, 245, 130, 10).lineWidth(1.5).stroke(borderColor);
+
+    doc
+      .fontSize(10)
+      .fillColor(textSecondary)
+      .font("Helvetica-Bold")
+      .text("APPOINTMENT DETAILS", 325, yPos + 18);
+
+    doc
+      .fontSize(14)
+      .fillColor(textPrimary)
+      .font("Helvetica-Bold")
+      .text(
+        `${order.appointment.firstName} ${order.appointment.lastName}`,
+        325,
+        yPos + 42
+      );
+
+    doc.fontSize(9.5).fillColor(textSecondary).font("Helvetica");
+    doc.text(order.appointment.phone, 325, yPos + 66);
+    doc.text(order.appointment.email, 325, yPos + 84);
+
+    // Appointment date/time with icon
+    doc.circle(330, yPos + 106, 3).fill(accentColor);
+    
+    // Format the appointment date properly
+    const formattedAppointmentDate = order.appointment.date 
+      ? new Date(order.appointment.date).toLocaleDateString("en-US", {
+          weekday: "short",
+          year: "numeric",
+          month: "short",
+          day: "numeric"
+        })
+      : "N/A";
+      
+    doc
+      .fontSize(9.5)
+      .fillColor(textPrimary)
+      .font("Helvetica-Bold")
+      .text(
+        `${formattedAppointmentDate} • ${order.appointment.time}`,
+        341,
+        yPos + 102
+      );
+
+    // ==================== ITEMS TABLE ====================
+    yPos = 390;
+
+    doc
+      .fontSize(15)
+      .fillColor(textPrimary)
+      .font("Helvetica-Bold")
       .text("Items & Description", 50, yPos);
 
-    yPos += 35;
+    yPos += 32;
 
-    // Table header with gradient effect
-    doc.rect(50, yPos, 500, 30).fill(brandColor);
-
-    // Subtle highlight line
+    // Table header
+    doc.rect(50, yPos, 500, 32).fill(brandColor);
     doc.rect(50, yPos, 500, 3).fill(accentColor);
 
     doc.fontSize(9).fillColor("#ffffff").font("Helvetica-Bold");
-    doc.text("ITEM DESCRIPTION", 65, yPos + 11);
-    doc.text("QTY", 320, yPos + 11, { width: 40, align: "center" });
-    doc.text("UNIT PRICE", 380, yPos + 11, { width: 70, align: "right" });
-    doc.text("AMOUNT", 470, yPos + 11, { width: 65, align: "right" });
+    doc.text("ITEM DESCRIPTION", 70, yPos + 13);
+    doc.text("QTY", 330, yPos + 13, { width: 35, align: "center" });
+    doc.text("UNIT PRICE", 385, yPos + 13, { width: 70, align: "right" });
+    doc.text("AMOUNT", 470, yPos + 13, { width: 65, align: "right" });
 
-    yPos += 30;
+    yPos += 32;
 
     // Table rows
     let rowIndex = 0;
     order.items.forEach((item) => {
       const itemTotal = item.price * item.quantity;
       const hasDetails = item.brand || item.sku;
-      const rowHeight = hasDetails ? 50 : 35;
+      const rowHeight = hasDetails ? 52 : 38;
 
-      // Alternating row background
+      // Alternating row colors
       if (rowIndex % 2 === 1) {
         doc.rect(50, yPos, 500, rowHeight).fill(bgLight);
       }
 
       // Item name
       doc
-        .fontSize(10)
+        .fontSize(10.5)
         .fillColor(textPrimary)
         .font("Helvetica-Bold")
-        .text(item.name, 65, yPos + 10, { width: 230, lineBreak: false });
+        .text(item.name, 70, yPos + 11, { width: 235, lineBreak: false });
 
-      // Brand and SKU details
+      // Brand and SKU
       if (hasDetails) {
         doc.fontSize(8).fillColor(textSecondary).font("Helvetica");
         const details = [];
         if (item.brand) details.push(item.brand);
         if (item.sku) details.push(`SKU: ${item.sku}`);
-        doc.text(details.join(" • "), 65, yPos + 27, { width: 230 });
+        doc.text(details.join(" • "), 70, yPos + 29, { width: 235 });
       }
 
       // Quantity
       doc
-        .fontSize(10)
+        .fontSize(10.5)
         .fillColor(textPrimary)
         .font("Helvetica")
-        .text(item.quantity.toString(), 320, yPos + 10, {
-          width: 40,
+        .text(item.quantity.toString(), 330, yPos + 11, {
+          width: 35,
           align: "center",
         });
 
       // Unit price
-      doc.text(`$${item.price.toFixed(2)}`, 380, yPos + 10, {
+      doc.text(`$${item.price.toFixed(2)}`, 385, yPos + 11, {
         width: 70,
         align: "right",
       });
 
-      // Total
+      // Total amount
       doc
         .font("Helvetica-Bold")
-        .text(`$${itemTotal.toFixed(2)}`, 470, yPos + 10, {
+        .text(`$${itemTotal.toFixed(2)}`, 470, yPos + 11, {
           width: 65,
           align: "right",
         });
 
-      // Bottom border
+      // Row border
       doc
         .strokeColor(borderColor)
         .lineWidth(0.5)
@@ -733,7 +745,7 @@ const DownloadPDF = async (req, res) => {
       yPos += rowHeight;
       rowIndex++;
 
-      // Add new page if needed
+      // New page if needed
       if (yPos > 650) {
         doc.addPage();
         yPos = 50;
@@ -742,128 +754,127 @@ const DownloadPDF = async (req, res) => {
     });
 
     // ==================== SUMMARY SECTION ====================
-    yPos += 30;
+    yPos += 28;
 
-    // Summary box with shadow effect
-    const summaryBoxX = 330;
+    const summaryBoxX = 325;
     const summaryBoxY = yPos;
 
-    // Shadow
-    doc.opacity(0.1);
+    // Shadow effect
+    doc.opacity(0.08);
     doc
-      .roundedRect(summaryBoxX + 3, summaryBoxY + 3, 220, 110, 8)
+      .roundedRect(summaryBoxX + 3, summaryBoxY + 3, 225, 115, 10)
       .fill("#000000");
     doc.opacity(1);
 
-    // Main box
+    // Summary box
     doc
-      .roundedRect(summaryBoxX, summaryBoxY, 220, 110, 8)
-      .lineWidth(1)
+      .roundedRect(summaryBoxX, summaryBoxY, 225, 115, 10)
+      .lineWidth(1.5)
       .strokeColor(borderColor)
       .fillColor("#ffffff")
       .fillAndStroke();
 
     // Subtotal
-    yPos += 20;
+    yPos += 22;
     doc
-      .fontSize(10)
+      .fontSize(10.5)
       .fillColor(textSecondary)
       .font("Helvetica")
-      .text("Subtotal:", summaryBoxX + 20, yPos);
+      .text("Subtotal:", summaryBoxX + 22, yPos);
     doc
       .fillColor(textPrimary)
       .font("Helvetica-Bold")
-      .text(`$${order.subtotal.toFixed(2)}`, summaryBoxX + 20, yPos, {
-        width: 180,
+      .text(`$${order.subtotal.toFixed(2)}`, summaryBoxX + 22, yPos, {
+        width: 181,
         align: "right",
       });
 
-    // Tax (if applicable)
+    // Tax
     if (order.tax) {
-      yPos += 22;
+      yPos += 24;
       doc
-        .fontSize(10)
+        .fontSize(10.5)
         .fillColor(textSecondary)
         .font("Helvetica")
-        .text("Tax:", summaryBoxX + 20, yPos);
+        .text("Tax:", summaryBoxX + 22, yPos);
       doc
         .fillColor(textPrimary)
         .font("Helvetica-Bold")
-        .text(`$${order.tax.toFixed(2)}`, summaryBoxX + 20, yPos, {
-          width: 180,
+        .text(`$${order.tax.toFixed(2)}`, summaryBoxX + 22, yPos, {
+          width: 181,
           align: "right",
         });
     }
 
-    // Divider
-    yPos += 25;
+    // Divider line
+    yPos += 26;
     doc
       .strokeColor(borderColor)
-      .lineWidth(1)
-      .moveTo(summaryBoxX + 20, yPos)
-      .lineTo(summaryBoxX + 200, yPos)
+      .lineWidth(1.5)
+      .moveTo(summaryBoxX + 22, yPos)
+      .lineTo(summaryBoxX + 203, yPos)
       .stroke();
 
-    // Total with accent background
-    yPos += 15;
-    doc.opacity(0.1);
-    doc.roundedRect(summaryBoxX + 15, yPos - 8, 190, 32, 6).fill(accentColor);
+    // Total amount
+    yPos += 16;
+    doc.opacity(0.08);
+    doc.roundedRect(summaryBoxX + 17, yPos - 9, 191, 34, 8).fill(accentColor);
     doc.opacity(1);
     doc
-      .roundedRect(summaryBoxX + 15, yPos - 8, 190, 32, 6)
-      .lineWidth(1)
+      .roundedRect(summaryBoxX + 17, yPos - 9, 191, 34, 8)
+      .lineWidth(1.5)
       .strokeColor(accentColor)
       .stroke();
 
     doc
-      .fontSize(12)
+      .fontSize(13)
       .fillColor(textPrimary)
       .font("Helvetica-Bold")
-      .text("TOTAL:", summaryBoxX + 25, yPos);
+      .text("TOTAL:", summaryBoxX + 27, yPos + 1);
     doc
-      .fontSize(16)
+      .fontSize(17)
       .fillColor(accentColor)
-      .text(`$${order.total.toFixed(2)}`, summaryBoxX + 25, yPos, {
-        width: 170,
+      .text(`$${order.total.toFixed(2)}`, summaryBoxX + 27, yPos, {
+        width: 171,
         align: "right",
       });
 
-    // ==================== PAYMENT INFO ====================
+    // ==================== PAYMENT INFORMATION ====================
     if (order.payment) {
-      yPos += 60;
+      yPos += 58;
 
       doc
-        .fontSize(12)
+        .fontSize(13)
         .fillColor(textPrimary)
         .font("Helvetica-Bold")
         .text("Payment Information", 50, yPos);
 
-      yPos += 25;
+      yPos += 26;
 
-      // Payment details box
+      // Payment box
       doc
-        .roundedRect(50, yPos, 280, 70, 8)
-        .lineWidth(1)
+        .roundedRect(50, yPos, 290, 75, 10)
+        .lineWidth(1.5)
         .strokeColor(borderColor)
         .fillColor(bgLight)
         .fillAndStroke();
 
       doc
-        .fontSize(9)
+        .fontSize(9.5)
         .fillColor(textSecondary)
         .font("Helvetica")
-        .text("Payment Method:", 70, yPos + 18);
+        .text("Payment Method:", 72, yPos + 20);
       doc
-        .fontSize(10)
+        .fontSize(10.5)
         .fillColor(textPrimary)
         .font("Helvetica-Bold")
-        .text(order.payment.method || "N/A", 180, yPos + 18);
+        .text(order.payment.method || "N/A", 190, yPos + 20);
 
       doc
-        .fontSize(9)
+        .fontSize(9.5)
         .fillColor(textSecondary)
         .font("Helvetica")
-        .text("Payment Status:", 70, yPos + 38);
+        .text("Payment Status:", 72, yPos + 42);
 
       const paymentStatusColor =
         order.payment.status === "completed"
@@ -872,41 +883,41 @@ const DownloadPDF = async (req, res) => {
           ? warningColor
           : dangerColor;
       doc
-        .fontSize(10)
+        .fontSize(10.5)
         .fillColor(paymentStatusColor)
         .font("Helvetica-Bold")
-        .text(order.payment.status.toUpperCase(), 180, yPos + 38);
+        .text(order.payment.status.toUpperCase(), 190, yPos + 42);
 
       if (order.payment.transactionId) {
         doc
-          .fontSize(8)
+          .fontSize(8.5)
           .fillColor(textSecondary)
           .font("Helvetica")
           .text(
             `Transaction ID: ${order.payment.transactionId}`,
-            70,
-            yPos + 55
+            72,
+            yPos + 58
           );
       }
     }
 
     // ==================== FOOTER ====================
-    const footerY = doc.page.height - 100;
+    const footerY = doc.page.height - 95;
 
     // Footer divider
     doc
       .strokeColor(borderColor)
-      .lineWidth(1)
+      .lineWidth(1.5)
       .moveTo(50, footerY)
       .lineTo(550, footerY)
       .stroke();
 
     // Thank you message
     doc
-      .fontSize(11)
+      .fontSize(12)
       .fillColor(textPrimary)
       .font("Helvetica-Bold")
-      .text("Thank you for your business!", 50, footerY + 20, {
+      .text("Thank you for your business!", 50, footerY + 22, {
         align: "center",
         width: 500,
       });
@@ -918,7 +929,7 @@ const DownloadPDF = async (req, res) => {
       .text(
         "If you have any questions about this invoice, please contact us",
         50,
-        footerY + 40,
+        footerY + 42,
         {
           align: "center",
           width: 500,
@@ -926,12 +937,12 @@ const DownloadPDF = async (req, res) => {
       );
 
     doc
-      .fontSize(8)
+      .fontSize(8.5)
       .fillColor(textSecondary)
       .text(
         "info@yourcompany.com • (555) 123-4567 • www.yourcompany.com",
         50,
-        footerY + 58,
+        footerY + 60,
         {
           align: "center",
           width: 500,
@@ -945,7 +956,7 @@ const DownloadPDF = async (req, res) => {
       doc
         .fontSize(8)
         .fillColor(textSecondary)
-        .text(`Page ${i + 1} of ${pages.count}`, 50, doc.page.height - 50, {
+        .text(`Page ${i + 1} of ${pages.count}`, 50, doc.page.height - 48, {
           align: "center",
           width: 500,
         });
