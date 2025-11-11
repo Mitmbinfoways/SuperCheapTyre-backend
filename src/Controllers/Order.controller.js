@@ -8,6 +8,8 @@ const ApiResponse = require("../Utils/ApiResponse");
 const ApiError = require("../Utils/ApiError");
 const sendMail = require("../Utils/Nodemailer");
 const dayjs = require("dayjs");
+const path = require("path");
+const fs = require("fs");
 
 const getAllOrders = async (req, res) => {
   try {
@@ -517,7 +519,7 @@ const DownloadPDF = async (req, res) => {
     // Company logo area
     try {
       // Use a more robust path resolution
-      const logoPath = path.resolve(__dirname, "../../public/logo_light.png");
+      const logoPath = path.join(__dirname, "..", "..", "public", "logo_light.png");
 
       // Check if file exists before trying to load it
       if (fs.existsSync(logoPath)) {
