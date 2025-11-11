@@ -105,7 +105,7 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
               <span style="color: #666; font-size: 12px;">
                 ${product.brand || "Unknown Brand"} | ${product.sku || "N/A"}
               </span><br>
-              <span style="color: #4CAF50; font-weight: bold;">$${price.toFixed(
+              <span style="color: #4CAF50; font-weight: bold;">AU$${price.toFixed(
                 2
               )}</span>
             </div>
@@ -114,7 +114,7 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
             ${quantity}
           </td>
           <td style="padding: 12px; border-bottom: 1px solid #e0e0e0; text-align: right;">
-            $${(price * quantity).toFixed(2)}
+            AU$${(price * quantity).toFixed(2)}
           </td>
         </tr>
       `;
@@ -251,14 +251,14 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
                   <table width="100%" cellpadding="8" cellspacing="0" style="border: 1px solid #e0e0e0; border-radius: 4px; background-color: #f9f9f9;">
                     <tr>
                       <td style="text-align: right; color: #666;"><strong>Subtotal:</strong></td>
-                      <td style="text-align: right; color: #333;">$${formattedSubtotal}</td>
+                      <td style="text-align: right; color: #333;">AU$${formattedSubtotal}</td>
                     </tr>
                     <tr>
                       <td style="text-align: right; color: #666; border-top: 2px solid #4CAF50; padding-top: 10px;">
                         <strong>Total:</strong>
                       </td>
                       <td style="text-align: right; color: #4CAF50; font-size: 18px; font-weight: bold; border-top: 2px solid #4CAF50; padding-top: 10px;">
-                        $${formattedTotal}
+                        AU$${formattedTotal}
                       </td>
                     </tr>
                   </table>
