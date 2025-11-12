@@ -519,7 +519,13 @@ const DownloadPDF = async (req, res) => {
     // Company logo area - properly positioned at top
     try {
       // Use a more robust path resolution
-      const logoPath = path.join(__dirname, "..", "..", "public", "logo_light.png");
+      const logoPath = path.join(
+        __dirname,
+        "..",
+        "..",
+        "public",
+        "logo_light.png"
+      );
 
       // Check if file exists before trying to load it
       if (fs.existsSync(logoPath)) {
@@ -544,14 +550,22 @@ const DownloadPDF = async (req, res) => {
     const logoX = 40; // Same x-coordinate as logo
     const logoBottom = 35 + 30; // Logo position (35) + height (80)
     const addressSpacing = 8; // Reduced spacing between elements
-    
+
     doc.fontSize(12).fillColor("#ffffff").font("Helvetica-Bold");
     doc.text("Super Cheap Tyres", logoX, logoBottom + addressSpacing);
 
     doc.fontSize(8.5).fillColor("#cbd5e1").font("Helvetica");
-    doc.text("114 Hammond Rd, Dandenong South VIC, 3175", logoX, logoBottom + addressSpacing + 15);
+    doc.text(
+      "114 Hammond Rd, Dandenong South VIC, 3175",
+      logoX,
+      logoBottom + addressSpacing + 15
+    );
     doc.text("Phone: (03) 9793 6190", logoX, logoBottom + addressSpacing + 27);
-    doc.text("Email: goodwillmotors@hotmail.com", logoX, logoBottom + addressSpacing + 39);
+    doc.text(
+      "Email: goodwillmotors@hotmail.com",
+      logoX,
+      logoBottom + addressSpacing + 39
+    );
 
     // Invoice title - properly positioned on the right
     doc
@@ -654,7 +668,7 @@ const DownloadPDF = async (req, res) => {
 
     // Appointment date/time with icon
     doc.circle(330, yPos + 106, 3).fill(accentColor);
-    
+
     const formattedAppointmentDate = order.appointment.date
       ? new Date(order.appointment.date).toLocaleDateString("en-US", {
           weekday: "short",
@@ -774,16 +788,20 @@ const DownloadPDF = async (req, res) => {
     const summaryBoxX = 325;
     const summaryBoxY = yPos;
 
+    // Calculate summary box height based on whether payment is pending
+    const isPaymentPending = order.payment?.status === "partial";
+    const summaryBoxHeight = isPaymentPending ? 165 : 115; // Extra 50px for paid/unpaid info
+
     // Shadow effect
     doc.opacity(0.08);
     doc
-      .roundedRect(summaryBoxX + 3, summaryBoxY + 3, 225, 115, 10)
+      .roundedRect(summaryBoxX + 3, summaryBoxY + 3, 225, summaryBoxHeight, 10)
       .fill("#000000");
     doc.opacity(1);
 
     // Summary box
     doc
-      .roundedRect(summaryBoxX, summaryBoxY, 225, 115, 10)
+      .roundedRect(summaryBoxX, summaryBoxY, 225, summaryBoxHeight, 10)
       // .lineWidth(1.5)
       // .strokeColor(borderColor)
       .fillColor("#ffffff")
@@ -816,6 +834,40 @@ const DownloadPDF = async (req, res) => {
         .fillColor(textPrimary)
         .font("Helvetica-Bold")
         .text(`$${order.tax.toFixed(2)}`, summaryBoxX + 22, yPos, {
+          width: 181,
+          align: "right",
+        });
+    }
+
+    // Show Paid Amount and Unpaid Amount when payment status is pending
+    if (isPaymentPending) {
+      const paidAmount = order.subtotal * 0.25; // 25% of total
+      const unpaidAmount = order.subtotal - paidAmount; // Remaining 75%
+
+      yPos += 24;
+      doc
+        .fontSize(10.5)
+        .fillColor(textSecondary)
+        .font("Helvetica")
+        .text("Paid Amount (25%):", summaryBoxX + 22, yPos);
+      doc
+        .fillColor(textPrimary)
+        .font("Helvetica-Bold")
+        .text(`$${paidAmount.toFixed(2)}`, summaryBoxX + 22, yPos, {
+          width: 181,
+          align: "right",
+        });
+
+      yPos += 24;
+      doc
+        .fontSize(10.5)
+        .fillColor(textSecondary)
+        .font("Helvetica")
+        .text("Unpaid Amount:", summaryBoxX + 22, yPos);
+      doc
+        .fillColor(textPrimary)
+        .font("Helvetica-Bold")
+        .text(`$${unpaidAmount.toFixed(2)}`, summaryBoxX + 22, yPos, {
           width: 181,
           align: "right",
         });
