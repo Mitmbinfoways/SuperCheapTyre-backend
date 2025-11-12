@@ -507,23 +507,23 @@ const DownloadPDF = async (req, res) => {
     const bgLight = "#f8fafc"; // Light background
 
     // ==================== HEADER SECTION ====================
-    // Modern gradient header
-    doc.rect(0, 0, doc.page.width, 180).fill(brandColor);
+    // Modern gradient header - optimized height
+    doc.rect(0, 0, doc.page.width, 160).fill(brandColor);
 
-    // Subtle geometric accent
+    // Subtle geometric accent - properly positioned
     doc.opacity(0.4);
-    doc.circle(500, 40, 70).fill("#1e293b");
-    doc.circle(515, 100, 55).fill("#334155");
+    doc.circle(500, 30, 70).fill("#1e293b");
+    doc.circle(515, 85, 55).fill("#334155");
     doc.opacity(1);
 
-    // Company logo area
+    // Company logo area - properly positioned at top
     try {
       // Use a more robust path resolution
       const logoPath = path.join(__dirname, "..", "..", "public", "logo_light.png");
 
       // Check if file exists before trying to load it
       if (fs.existsSync(logoPath)) {
-        doc.image(logoPath, 40, 65, { width: 80 });
+        doc.image(logoPath, 30, 20, { width: 120 });
       } else {
         throw new Error(`Logo file not found at path: ${logoPath}`);
       }
@@ -532,43 +532,45 @@ const DownloadPDF = async (req, res) => {
         "⚠️ Logo not loaded, using fallback text instead:",
         err.message
       );
-      doc.roundedRect(50, 35, 65, 65, 10).fill("#ffffff");
+      doc.roundedRect(40, 35, 80, 80, 10).fill("#ffffff");
       doc
         .fontSize(24)
         .fillColor(accentColor)
         .font("Helvetica-Bold")
-        .text("YB", 50, 53, { width: 65, align: "center" });
+        .text("SCT", 40, 55, { width: 80, align: "center" });
     }
 
-    // Company information - left aligned
+    // Company information - positioned directly below the logo with proper alignment
+    const logoX = 40; // Same x-coordinate as logo
+    const logoBottom = 35 + 30; // Logo position (35) + height (80)
+    const addressSpacing = 8; // Reduced spacing between elements
+    
     doc.fontSize(12).fillColor("#ffffff").font("Helvetica-Bold");
-    doc.text("Super Cheap Tyres", 135, 45);
+    doc.text("Super Cheap Tyres", logoX, logoBottom + addressSpacing);
 
     doc.fontSize(8.5).fillColor("#cbd5e1").font("Helvetica");
-    doc.text("123 Business Street, Suite 100", 135, 66);
-    doc.text("City, State 12345", 135, 80);
-    doc.text("Phone: (555) 123-4567", 135, 94);
-    doc.text("Email: info@yourcompany.com", 135, 108);
+    doc.text("114 Hammond Rd, Dandenong South VIC, 3175", logoX, logoBottom + addressSpacing + 15);
+    doc.text("Phone: (03) 9793 6190", logoX, logoBottom + addressSpacing + 27);
+    doc.text("Email: goodwillmotors@hotmail.com", logoX, logoBottom + addressSpacing + 39);
 
-    // Invoice title - right aligned
+    // Invoice title - properly positioned on the right
     doc
       .fontSize(38)
       .fillColor("#ffffff")
       .font("Helvetica-Bold")
-      .text("INVOICE", 320, 42, { align: "right", width: 230 });
+      .text("INVOICE", 320, 20, { align: "right", width: 230 });
 
-    // Invoice details - right aligned
+    // Invoice details - properly positioned on the right with consistent spacing
     doc.fontSize(9.5).fillColor("#cbd5e1").font("Helvetica");
     doc.text(
       `Invoice #: INV-${order._id.toString().slice(-8).toUpperCase()}`,
       320,
-      88,
+      60,
       {
         align: "right",
         width: 230,
       }
     );
-
     const formattedDate = new Date(order.createdAt).toLocaleDateString(
       "en-US",
       {
@@ -577,7 +579,7 @@ const DownloadPDF = async (req, res) => {
         day: "numeric",
       }
     );
-    doc.text(`Date: ${formattedDate}`, 320, 103, {
+    doc.text(`Date: ${formattedDate}`, 320, 80, {
       align: "right",
       width: 230,
     });
@@ -599,7 +601,8 @@ const DownloadPDF = async (req, res) => {
     //   .text(statusText, 428, 140, { align: "center", width: 122 });
 
     // ==================== CUSTOMER DETAILS SECTION ====================
-    let yPos = 220;
+    // Properly positioned below header
+    let yPos = 190;
 
     // Bill To card
     doc.opacity(0.03);
@@ -865,28 +868,28 @@ const DownloadPDF = async (req, res) => {
 
       // Payment box
       doc
-        .roundedRect(50, yPos, 290, 75, 10)
+        .roundedRect(50, yPos, 290, 50, 10)
         .lineWidth(1.5)
         .strokeColor(borderColor)
         .fillColor(bgLight)
         .fillAndStroke();
 
-      doc
-        .fontSize(9.5)
-        .fillColor(textSecondary)
-        .font("Helvetica")
-        .text("Payment Method:", 72, yPos + 20);
-      doc
-        .fontSize(10.5)
-        .fillColor(textPrimary)
-        .font("Helvetica-Bold")
-        .text(order.payment.method || "N/A", 190, yPos + 20);
+      // doc
+      //   .fontSize(9.5)
+      //   .fillColor(textSecondary)
+      //   .font("Helvetica")
+      //   .text("Payment Method:", 72, yPos + 20);
+      // doc
+      //   .fontSize(10.5)
+      //   .fillColor(textPrimary)
+      //   .font("Helvetica-Bold")
+      //   .text(order.payment.method || "N/A", 190, yPos + 20);
 
       doc
         .fontSize(9.5)
         .fillColor(textSecondary)
         .font("Helvetica")
-        .text("Payment Status:", 72, yPos + 42);
+        .text("Payment Status:", 72, yPos + 20);
 
       const paymentStatusColor =
         order.payment.status === "completed"
@@ -898,7 +901,7 @@ const DownloadPDF = async (req, res) => {
         .fontSize(10.5)
         .fillColor(paymentStatusColor)
         .font("Helvetica-Bold")
-        .text(order.payment.status.toUpperCase(), 190, yPos + 42);
+        .text(order.payment.status.toUpperCase(), 190, yPos + 20);
 
       if (order.payment.transactionId) {
         doc
@@ -908,13 +911,13 @@ const DownloadPDF = async (req, res) => {
           .text(
             `Transaction ID: ${order.payment.transactionId}`,
             72,
-            yPos + 58
+            yPos + 38
           );
       }
     }
 
     // ==================== FOOTER ====================
-    const footerY = doc.page.height - 70;
+    const footerY = doc.page.height - 80;
 
     // Footer divider
     doc
