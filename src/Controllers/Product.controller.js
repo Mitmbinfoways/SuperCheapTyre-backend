@@ -568,12 +568,20 @@ const HomeData = async (req, res) => {
         .limit(2);
     }
 
-    const randomProducts = await Product.aggregate([{ $sample: { size: 10 } }]);
+    const randomProducts = await Product.aggregate([
+      { $match: { isActive: true, isDelete: false } },
+      { $sample: { size: 10 } },
+    ]);
 
-    const newArrivals = await Product.find({}).sort({ createdAt: -1 }).limit(1);
+    const newArrivals = await Product.find({
+      isActive: true,
+      isDelete: false,
+    })
+      .sort({ createdAt: -1 })
+      .limit(1);
 
     const popularProduct = await Product.aggregate([
-      { $match: { isPopular: true } },
+      { $match: { isPopular: true, isActive: true, isDelete: false } },
       { $sample: { size: 1 } },
     ]);
 
@@ -598,6 +606,7 @@ const HomeData = async (req, res) => {
     });
   }
 };
+
 const getSimilarProducts = async (req, res) => {
   try {
     const { id } = req.params;
@@ -612,6 +621,7 @@ const getSimilarProducts = async (req, res) => {
     const similarityQuery = {
       _id: { $ne: id },
       isActive: true,
+      isDelete: false,
       $or: [],
     };
 
@@ -657,14 +667,10 @@ const getSimilarProducts = async (req, res) => {
       }
     }
 
-    similarityQuery.$or.push({
-      category: currentProduct.category,
-    });
+    similarityQuery.$or.push({ category: currentProduct.category });
 
     if (currentProduct.brand) {
-      similarityQuery.$or.push({
-        brand: currentProduct.brand,
-      });
+      similarityQuery.$or.push({ brand: currentProduct.brand });
     }
 
     let similarProducts = await Product.find(similarityQuery)
@@ -684,19 +690,12 @@ const getSimilarProducts = async (req, res) => {
         score += 10;
       }
 
-      if (product.category === currentProduct.category) {
-        score += 5;
-      }
-
-      if (product.brand === currentProduct.brand) {
-        score += 3;
-      }
+      if (product.category === currentProduct.category) score += 5;
+      if (product.brand === currentProduct.brand) score += 3;
 
       const priceDiff = Math.abs(product.price - currentProduct.price);
       const pricePercentDiff = (priceDiff / currentProduct.price) * 100;
-      if (pricePercentDiff <= 20) {
-        score += 2;
-      }
+      if (pricePercentDiff <= 20) score += 2;
 
       if (currentProduct.category === "Tyres" && product.category === "Tyres") {
         if (
@@ -742,9 +741,7 @@ const getSimilarProducts = async (req, res) => {
           score += 2;
       }
 
-      if (product.isPopular) {
-        score += 1;
-      }
+      if (product.isPopular) score += 1;
 
       return { ...product, similarityScore: score };
     });
@@ -761,7 +758,7 @@ const getSimilarProducts = async (req, res) => {
         new ApiResponse(
           200,
           similarProducts,
-          "Similar Product Fetch successFully"
+          "Similar Product fetched successfully"
         )
       );
   } catch (error) {
