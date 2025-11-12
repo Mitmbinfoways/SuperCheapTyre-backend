@@ -545,17 +545,28 @@ const HomeData = async (req, res) => {
       { $limit: 2 },
     ]);
 
-    const bestSellerIds = bestSellersAgg.map(
-      (p) => new mongoose.Types.ObjectId(p._id)
-    );
+    let bestSellerProducts = [];
+    let sortedBestSellers = [];
 
-    const bestSellerProducts = await Product.find({
-      _id: { $in: bestSellerIds },
-    });
+    if (bestSellersAgg.length > 0) {
+      const bestSellerIds = bestSellersAgg.map(
+        (p) => new mongoose.Types.ObjectId(p._id)
+      );
 
-    const sortedBestSellers = bestSellerIds.map((id) =>
-      bestSellerProducts.find((p) => p._id.equals(id))
-    );
+      bestSellerProducts = await Product.find({
+        _id: { $in: bestSellerIds },
+      });
+
+      sortedBestSellers = bestSellerIds.map((id) =>
+        bestSellerProducts.find((p) => p._id.equals(id))
+      );
+    }
+
+    if (bestSellerProducts.length === 0) {
+      sortedBestSellers = await Product.find({})
+        .sort({ createdAt: -1 })
+        .limit(2);
+    }
 
     const randomProducts = await Product.aggregate([{ $sample: { size: 10 } }]);
 
@@ -587,7 +598,6 @@ const HomeData = async (req, res) => {
     });
   }
 };
-
 const getSimilarProducts = async (req, res) => {
   try {
     const { id } = req.params;
