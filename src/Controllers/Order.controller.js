@@ -511,6 +511,62 @@ const DownloadPDF = async (req, res) => {
     const footerHeight = 80; // Reserve 80 points for footer
     const maxContentY = pageHeight - footerHeight; // 762 points
 
+    // Function to draw footer on each page
+    const drawFooter = () => {
+      const footerY = pageHeight - footerHeight; // Fixed at 762
+
+      doc
+        .strokeColor(borderColor)
+        .lineWidth(1.5)
+        .moveTo(50, footerY)
+        .lineTo(550, footerY)
+        .stroke();
+
+      doc
+        .fontSize(12)
+        .fillColor(textPrimary)
+        .font("Helvetica-Bold")
+        .text("Thank you for your business!", 50, footerY + 18, {
+          align: "center",
+          width: 500,
+        });
+
+      doc
+        .fontSize(9)
+        .fillColor(textSecondary)
+        .font("Helvetica")
+        .text(
+          "If you have any questions about this invoice, please contact us",
+          50,
+          footerY + 38,
+          {
+            align: "center",
+            width: 500,
+          }
+        );
+
+      doc
+        .fontSize(8.5)
+        .fillColor(textSecondary)
+        .text(
+          "info@yourcompany.com • (555) 123-4567 • www.yourcompany.com",
+          50,
+          footerY + 56,
+          {
+            align: "center",
+            width: 500,
+          }
+        );
+    };
+
+    // Draw footer on every new page
+    doc.on("pageAdded", () => {
+      drawFooter();
+    });
+
+    // Draw footer on the first page
+    drawFooter();
+
     // ==================== HEADER SECTION ====================
     doc.rect(0, 0, doc.page.width, 160).fill(brandColor);
 
@@ -579,14 +635,11 @@ const DownloadPDF = async (req, res) => {
       60,
       { align: "right", width: 230 }
     );
-    const formattedDate = new Date(order.createdAt).toLocaleDateString(
-      "en-US",
-      {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      }
-    );
+    const formattedDate = new Date(order.createdAt).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
     doc.text(`Date: ${formattedDate}`, 320, 80, {
       align: "right",
       width: 230,
@@ -753,7 +806,7 @@ const DownloadPDF = async (req, res) => {
 
     // ==================== PAYMENT INFORMATION SECTION ====================
     yPos += 28; // Gap after Items Table
-    let boxY = yPos; // Changed to let to allow reassignment
+    let boxY = yPos; // Use let to allow reassignment
 
     const isPaymentPending = order.payment?.status === "partial";
     const boxHeight = isPaymentPending ? 165 : 115;
@@ -762,7 +815,7 @@ const DownloadPDF = async (req, res) => {
     if (yPos + boxHeight > maxContentY) {
       doc.addPage();
       yPos = 50;
-      boxY = yPos; // Reassign boxY
+      boxY = yPos;
     }
 
     if (order.payment) {
@@ -876,9 +929,9 @@ const DownloadPDF = async (req, res) => {
         .fillColor(textPrimary)
         .font("Helvetica-Bold")
         .text(`$${order.tax.toFixed(2)}`, summaryBoxX + 22, yPos, {
-          width: 201,
-          align: "right",
-        });
+        width: 201,
+        align: "right",
+      });
     }
 
     if (isPaymentPending) {
@@ -940,57 +993,6 @@ const DownloadPDF = async (req, res) => {
         width: 191,
         align: "right",
       });
-
-    // ==================== FOOTER ====================
-    // Ensure footer is on the last page
-    if (yPos + footerHeight > maxContentY) {
-      doc.addPage();
-    }
-
-    const footerY = pageHeight - footerHeight; // Fixed at bottom (762)
-
-    doc
-      .strokeColor(borderColor)
-      .lineWidth(1.5)
-      .moveTo(50, footerY)
-      .lineTo(550, footerY)
-      .stroke();
-
-    doc
-      .fontSize(12)
-      .fillColor(textPrimary)
-      .font("Helvetica-Bold")
-      .text("Thank you for your business!", 50, footerY + 18, {
-        align: "center",
-        width: 500,
-      });
-
-    doc
-      .fontSize(9)
-      .fillColor(textSecondary)
-      .font("Helvetica")
-      .text(
-        "If you have any questions about this invoice, please contact us",
-        50,
-        footerY + 38,
-        {
-          align: "center",
-          width: 500,
-        }
-      );
-
-    doc
-      .fontSize(8.5)
-      .fillColor(textSecondary)
-      .text(
-        "info@yourcompany.com • (555) 123-4567 • www.yourcompany.com",
-        50,
-        footerY + 56,
-        {
-          align: "center",
-          width: 500,
-        }
-      );
 
     doc.end();
   } catch (error) {
