@@ -506,19 +506,20 @@ const DownloadPDF = async (req, res) => {
     const borderColor = "#e2e8f0"; // Subtle border
     const bgLight = "#f8fafc"; // Light background
 
+    // Page dimensions
+    const pageHeight = 842; // A4 height in points
+    const footerHeight = 80; // Reserve 80 points for footer
+    const maxContentY = pageHeight - footerHeight; // 762 points
+
     // ==================== HEADER SECTION ====================
-    // Modern gradient header - optimized height
     doc.rect(0, 0, doc.page.width, 160).fill(brandColor);
 
-    // Subtle geometric accent - properly positioned
     doc.opacity(0.4);
     doc.circle(500, 30, 70).fill("#1e293b");
     doc.circle(515, 85, 55).fill("#334155");
     doc.opacity(1);
 
-    // Company logo area - properly positioned at top
     try {
-      // Use a more robust path resolution
       const logoPath = path.join(
         __dirname,
         "..",
@@ -527,7 +528,6 @@ const DownloadPDF = async (req, res) => {
         "logo_light.png"
       );
 
-      // Check if file exists before trying to load it
       if (fs.existsSync(logoPath)) {
         doc.image(logoPath, 30, 20, { width: 120 });
       } else {
@@ -546,10 +546,9 @@ const DownloadPDF = async (req, res) => {
         .text("SCT", 40, 55, { width: 80, align: "center" });
     }
 
-    // Company information - positioned directly below the logo with proper alignment
-    const logoX = 40; // Same x-coordinate as logo
-    const logoBottom = 35 + 30; // Logo position (35) + height (80)
-    const addressSpacing = 8; // Reduced spacing between elements
+    const logoX = 40;
+    const logoBottom = 35 + 30;
+    const addressSpacing = 8;
 
     doc.fontSize(12).fillColor("#ffffff").font("Helvetica-Bold");
     doc.text("Super Cheap Tyres", logoX, logoBottom + addressSpacing);
@@ -567,23 +566,18 @@ const DownloadPDF = async (req, res) => {
       logoBottom + addressSpacing + 39
     );
 
-    // Invoice title - properly positioned on the right
     doc
       .fontSize(38)
       .fillColor("#ffffff")
       .font("Helvetica-Bold")
       .text("INVOICE", 320, 20, { align: "right", width: 230 });
 
-    // Invoice details - properly positioned on the right with consistent spacing
     doc.fontSize(9.5).fillColor("#cbd5e1").font("Helvetica");
     doc.text(
       `Invoice #: INV-${order._id.toString().slice(-8).toUpperCase()}`,
       320,
       60,
-      {
-        align: "right",
-        width: 230,
-      }
+      { align: "right", width: 230 }
     );
     const formattedDate = new Date(order.createdAt).toLocaleDateString(
       "en-US",
@@ -598,27 +592,9 @@ const DownloadPDF = async (req, res) => {
       width: 230,
     });
 
-    // Payment status badge
-    const statusColor =
-      order.payment?.status === "completed"
-        ? successColor
-        : order.payment?.status === "pending"
-        ? warningColor
-        : dangerColor;
-    const statusText = order.payment?.status?.toUpperCase() || "PENDING";
-
-    // doc.roundedRect(428, 130, 122, 30, 15).fill(statusColor);
-    // doc
-    //   .fontSize(11)
-    //   .fillColor("#ffffff")
-    //   .font("Helvetica-Bold")
-    //   .text(statusText, 428, 140, { align: "center", width: 122 });
-
     // ==================== CUSTOMER DETAILS SECTION ====================
-    // Properly positioned below header
     let yPos = 190;
 
-    // Bill To card
     doc.opacity(0.03);
     doc.roundedRect(50, yPos, 245, 130, 10).fill(accentColor);
     doc.opacity(1);
@@ -640,7 +616,6 @@ const DownloadPDF = async (req, res) => {
     doc.text(order.customer.phone, 70, yPos + 66);
     doc.text(order.customer.email || "N/A", 70, yPos + 84);
 
-    // Appointment Details card
     doc.opacity(0.03);
     doc.roundedRect(305, yPos, 245, 130, 10).fill(accentColor);
     doc.opacity(1);
@@ -666,7 +641,6 @@ const DownloadPDF = async (req, res) => {
     doc.text(order.appointment.phone, 325, yPos + 66);
     doc.text(order.appointment.email, 325, yPos + 84);
 
-    // Appointment date/time with icon
     doc.circle(330, yPos + 106, 3).fill(accentColor);
 
     const formattedAppointmentDate = order.appointment.date
@@ -689,17 +663,10 @@ const DownloadPDF = async (req, res) => {
       );
 
     // ==================== ITEMS TABLE ====================
-    yPos = 390;
-
-    doc
-      .fontSize(15)
-      .fillColor(textPrimary)
-      .font("Helvetica-Bold")
-      .text("Items & Description", 50, yPos);
+    yPos = 350;
 
     yPos += 32;
 
-    // Table header
     doc.rect(50, yPos, 500, 32).fill(brandColor);
     doc.rect(50, yPos, 500, 3).fill(accentColor);
 
@@ -711,26 +678,39 @@ const DownloadPDF = async (req, res) => {
 
     yPos += 32;
 
-    // Table rows
     let rowIndex = 0;
     order.items.forEach((item) => {
       const itemTotal = item.price * item.quantity;
       const hasDetails = item.brand || item.sku;
       const rowHeight = hasDetails ? 52 : 38;
 
-      // Alternating row colors
+      // Check if row fits on current page
+      if (yPos + rowHeight > maxContentY) {
+        doc.addPage();
+        yPos = 50;
+        rowIndex = 0;
+
+        // Redraw table header on new page
+        doc.rect(50, yPos, 500, 32).fill(brandColor);
+        doc.rect(50, yPos, 500, 3).fill(accentColor);
+        doc.fontSize(9).fillColor("#ffffff").font("Helvetica-Bold");
+        doc.text("ITEM DESCRIPTION", 70, yPos + 13);
+        doc.text("QTY", 330, yPos + 13, { width: 35, align: "center" });
+        doc.text("UNIT PRICE", 385, yPos + 13, { width: 70, align: "right" });
+        doc.text("AMOUNT", 470, yPos + 13, { width: 65, align: "right" });
+        yPos += 32;
+      }
+
       if (rowIndex % 2 === 1) {
         doc.rect(50, yPos, 500, rowHeight).fill(bgLight);
       }
 
-      // Item name
       doc
         .fontSize(10.5)
         .fillColor(textPrimary)
         .font("Helvetica-Bold")
         .text(item.name, 70, yPos + 11, { width: 235, lineBreak: false });
 
-      // Brand and SKU
       if (hasDetails) {
         doc.fontSize(8).fillColor(textSecondary).font("Helvetica");
         const details = [];
@@ -739,7 +719,6 @@ const DownloadPDF = async (req, res) => {
         doc.text(details.join(" • "), 70, yPos + 29, { width: 235 });
       }
 
-      // Quantity
       doc
         .fontSize(10.5)
         .fillColor(textPrimary)
@@ -749,13 +728,11 @@ const DownloadPDF = async (req, res) => {
           align: "center",
         });
 
-      // Unit price
       doc.text(`$${item.price.toFixed(2)}`, 385, yPos + 11, {
         width: 70,
         align: "right",
       });
 
-      // Total amount
       doc
         .font("Helvetica-Bold")
         .text(`$${itemTotal.toFixed(2)}`, 470, yPos + 11, {
@@ -763,7 +740,6 @@ const DownloadPDF = async (req, res) => {
           align: "right",
         });
 
-      // Row border
       doc
         .strokeColor(borderColor)
         .lineWidth(0.5)
@@ -773,41 +749,108 @@ const DownloadPDF = async (req, res) => {
 
       yPos += rowHeight;
       rowIndex++;
-
-      // New page if needed
-      if (yPos > 650) {
-        doc.addPage();
-        yPos = 50;
-        rowIndex = 0;
-      }
     });
 
-    // ==================== SUMMARY SECTION ====================
-    yPos += 28;
+    // ==================== PAYMENT INFORMATION SECTION ====================
+    yPos += 28; // Gap after Items Table
+    let boxY = yPos; // Changed to let to allow reassignment
 
-    const summaryBoxX = 325;
-    const summaryBoxY = yPos;
-
-    // Calculate summary box height based on whether payment is pending
     const isPaymentPending = order.payment?.status === "partial";
-    const summaryBoxHeight = isPaymentPending ? 165 : 115; // Extra 50px for paid/unpaid info
+    const boxHeight = isPaymentPending ? 165 : 115;
 
-    // Shadow effect
+    // Check if Payment/Summary sections fit on current page
+    if (yPos + boxHeight > maxContentY) {
+      doc.addPage();
+      yPos = 50;
+      boxY = yPos; // Reassign boxY
+    }
+
+    if (order.payment) {
+      const paymentBoxX = 50;
+      const paymentBoxWidth = 245;
+
+      doc.opacity(0.08);
+      doc
+        .roundedRect(paymentBoxX + 3, boxY + 3, paymentBoxWidth, boxHeight, 10)
+        .fill("#000000");
+      doc.opacity(1);
+
+      doc
+        .roundedRect(paymentBoxX, boxY, paymentBoxWidth, boxHeight, 10)
+        .fillColor("#ffffff")
+        .fillAndStroke();
+
+      yPos = boxY + 22;
+      doc
+        .fontSize(13)
+        .fillColor(textPrimary)
+        .font("Helvetica-Bold")
+        .text("Payment Information", paymentBoxX + 22, yPos);
+
+      yPos += 24;
+      doc
+        .fontSize(10.5)
+        .fillColor(textSecondary)
+        .font("Helvetica")
+        .text("Payment Status:", paymentBoxX + 22, yPos);
+      const paymentStatusColor =
+        order.payment.status === "completed"
+          ? successColor
+          : order.payment.status === "pending"
+          ? warningColor
+          : dangerColor;
+      doc
+        .fontSize(10.5)
+        .fillColor(paymentStatusColor)
+        .font("Helvetica-Bold")
+        .text(order.payment.status.toUpperCase(), paymentBoxX + 140, yPos);
+
+      if (order.payment.transactionId) {
+        yPos += 24;
+        doc
+          .fontSize(10.5)
+          .fillColor(textSecondary)
+          .font("Helvetica")
+          .text("Transaction ID:", paymentBoxX + 22, yPos);
+        doc
+          .fontSize(10.5)
+          .fillColor(textPrimary)
+          .font("Helvetica-Bold")
+          .text(order.payment.transactionId, paymentBoxX + 140, yPos);
+      }
+
+      if (order.payment.method) {
+        yPos += 24;
+        doc
+          .fontSize(10.5)
+          .fillColor(textSecondary)
+          .font("Helvetica")
+          .text("Payment Method:", paymentBoxX + 22, yPos);
+        doc
+          .fontSize(10.5)
+          .fillColor(textPrimary)
+          .font("Helvetica-Bold")
+          .text(order.payment.method, paymentBoxX + 140, yPos);
+      }
+    }
+
+    // ==================== SUMMARY SECTION ====================
+    yPos = boxY;
+
+    const summaryBoxX = 305;
+    const summaryBoxWidth = 245;
+
     doc.opacity(0.08);
     doc
-      .roundedRect(summaryBoxX + 3, summaryBoxY + 3, 225, summaryBoxHeight, 10)
+      .roundedRect(summaryBoxX + 3, boxY + 3, summaryBoxWidth, boxHeight, 10)
       .fill("#000000");
     doc.opacity(1);
 
-    // Summary box
     doc
-      .roundedRect(summaryBoxX, summaryBoxY, 225, summaryBoxHeight, 10)
-      // .lineWidth(1.5)
-      // .strokeColor(borderColor)
+      .roundedRect(summaryBoxX, boxY, summaryBoxWidth, boxHeight, 10)
       .fillColor("#ffffff")
       .fillAndStroke();
 
-    // Subtotal
     yPos += 22;
     doc
       .fontSize(10.5)
@@ -818,11 +861,10 @@ const DownloadPDF = async (req, res) => {
       .fillColor(textPrimary)
       .font("Helvetica-Bold")
       .text(`$${order.subtotal.toFixed(2)}`, summaryBoxX + 22, yPos, {
-        width: 181,
+        width: 201,
         align: "right",
       });
 
-    // Tax
     if (order.tax) {
       yPos += 24;
       doc
@@ -834,15 +876,14 @@ const DownloadPDF = async (req, res) => {
         .fillColor(textPrimary)
         .font("Helvetica-Bold")
         .text(`$${order.tax.toFixed(2)}`, summaryBoxX + 22, yPos, {
-          width: 181,
+          width: 201,
           align: "right",
         });
     }
 
-    // Show Paid Amount and Unpaid Amount when payment status is pending
     if (isPaymentPending) {
-      const paidAmount = order.subtotal * 0.25; // 25% of total
-      const unpaidAmount = order.subtotal - paidAmount; // Remaining 75%
+      const paidAmount = order.subtotal * 0.25;
+      const unpaidAmount = order.subtotal - paidAmount;
 
       yPos += 24;
       doc
@@ -854,7 +895,7 @@ const DownloadPDF = async (req, res) => {
         .fillColor(textPrimary)
         .font("Helvetica-Bold")
         .text(`$${paidAmount.toFixed(2)}`, summaryBoxX + 22, yPos, {
-          width: 181,
+          width: 201,
           align: "right",
         });
 
@@ -868,30 +909,23 @@ const DownloadPDF = async (req, res) => {
         .fillColor(textPrimary)
         .font("Helvetica-Bold")
         .text(`$${unpaidAmount.toFixed(2)}`, summaryBoxX + 22, yPos, {
-          width: 181,
+          width: 201,
           align: "right",
         });
     }
 
-    // Divider line
     yPos += 26;
     doc
       .strokeColor(borderColor)
       .lineWidth(1.5)
       .moveTo(summaryBoxX + 22, yPos)
-      .lineTo(summaryBoxX + 203, yPos)
+      .lineTo(summaryBoxX + 223, yPos)
       .stroke();
 
-    // Total amount
     yPos += 16;
     doc.opacity(0.08);
-    doc.roundedRect(summaryBoxX + 17, yPos - 9, 191, 34, 8).fill(accentColor);
+    doc.roundedRect(summaryBoxX + 17, yPos - 9, 211, 34, 8).fill(accentColor);
     doc.opacity(1);
-    // doc
-    //   .roundedRect(summaryBoxX + 17, yPos - 9, 191, 34, 8)
-    //   // .lineWidth(1.5)
-    //   // .strokeColor(accentColor)
-    //   .stroke();
 
     doc
       .fontSize(13)
@@ -901,77 +935,20 @@ const DownloadPDF = async (req, res) => {
     doc
       .fontSize(17)
       .fillColor(accentColor)
+      .font("Helvetica-Bold")
       .text(`$${order.total.toFixed(2)}`, summaryBoxX + 27, yPos, {
-        width: 171,
+        width: 191,
         align: "right",
       });
 
-    // ==================== PAYMENT INFORMATION ====================
-    if (order.payment) {
-      yPos += 58;
-
-      doc
-        .fontSize(13)
-        .fillColor(textPrimary)
-        .font("Helvetica-Bold")
-        .text("Payment Information", 50, yPos);
-
-      yPos += 26;
-
-      // Payment box
-      doc
-        .roundedRect(50, yPos, 290, 50, 10)
-        .lineWidth(1.5)
-        .strokeColor(borderColor)
-        .fillColor(bgLight)
-        .fillAndStroke();
-
-      // doc
-      //   .fontSize(9.5)
-      //   .fillColor(textSecondary)
-      //   .font("Helvetica")
-      //   .text("Payment Method:", 72, yPos + 20);
-      // doc
-      //   .fontSize(10.5)
-      //   .fillColor(textPrimary)
-      //   .font("Helvetica-Bold")
-      //   .text(order.payment.method || "N/A", 190, yPos + 20);
-
-      doc
-        .fontSize(9.5)
-        .fillColor(textSecondary)
-        .font("Helvetica")
-        .text("Payment Status:", 72, yPos + 20);
-
-      const paymentStatusColor =
-        order.payment.status === "completed"
-          ? successColor
-          : order.payment.status === "pending"
-          ? warningColor
-          : dangerColor;
-      doc
-        .fontSize(10.5)
-        .fillColor(paymentStatusColor)
-        .font("Helvetica-Bold")
-        .text(order.payment.status.toUpperCase(), 190, yPos + 20);
-
-      if (order.payment.transactionId) {
-        doc
-          .fontSize(8.5)
-          .fillColor(textSecondary)
-          .font("Helvetica")
-          .text(
-            `Transaction ID: ${order.payment.transactionId}`,
-            72,
-            yPos + 38
-          );
-      }
+    // ==================== FOOTER ====================
+    // Ensure footer is on the last page
+    if (yPos + footerHeight > maxContentY) {
+      doc.addPage();
     }
 
-    // ==================== FOOTER ====================
-    const footerY = doc.page.height - 80;
+    const footerY = pageHeight - footerHeight; // Fixed at bottom (762)
 
-    // Footer divider
     doc
       .strokeColor(borderColor)
       .lineWidth(1.5)
@@ -979,7 +956,6 @@ const DownloadPDF = async (req, res) => {
       .lineTo(550, footerY)
       .stroke();
 
-    // Thank you message
     doc
       .fontSize(12)
       .fillColor(textPrimary)
