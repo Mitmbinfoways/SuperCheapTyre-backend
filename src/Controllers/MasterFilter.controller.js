@@ -36,36 +36,45 @@ const createMasterFilter = async (req, res) => {
 
 const getAllMasterFilters = async (req, res) => {
   try {
-    const { search, category, page = 1, limit = 10 } = req.query;
+    const { search, category, page, limit, subCategory } = req.query;
     const query = {};
 
     if (search) {
       query.$or = [
+        { category: { $regex: search, $options: "i" } },        
         { subCategory: { $regex: search, $options: "i" } },
         { values: { $regex: search, $options: "i" } },
       ];
     }
 
     if (category) query.category = category;
+    if (subCategory) query.subCategory = subCategory;
 
     const total = await MasterFilter.countDocuments(query);
 
-    const filters = await MasterFilter.find(query)
-      .sort({ createdAt: -1 })
-      .skip((parseInt(page) - 1) * parseInt(limit))
-      .limit(parseInt(limit));
+    let filtersQuery = MasterFilter.find(query).sort({ createdAt: -1 });
+
+    if (page && limit) {
+      const skip = (parseInt(page) - 1) * parseInt(limit);
+      filtersQuery = filtersQuery.skip(skip).limit(parseInt(limit));
+    }
+
+    const filters = await filtersQuery;
 
     return res.status(200).json(
       new ApiResponse(
         200,
         {
           items: filters,
-          pagination: {
-            total,
-            page: parseInt(page),
-            limit: parseInt(limit),
-            totalPages: Math.ceil(total / limit),
-          },
+          pagination:
+            page && limit
+              ? {
+                  total,
+                  page: parseInt(page),
+                  limit: parseInt(limit),
+                  totalPages: Math.ceil(total / limit),
+                }
+              : null,
         },
         "Master filters fetched successfully"
       )
