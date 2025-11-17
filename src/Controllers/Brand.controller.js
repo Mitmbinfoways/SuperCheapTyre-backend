@@ -7,7 +7,7 @@ const Brand = require("../Models/Brand.model");
 
 const getAllBrands = async (req, res) => {
   try {
-    const { isActive, search, category, page = 1, limit = 10 } = req.query;
+    const { isActive, search, category, page, limit } = req.query;
 
     const filter = {};
 
@@ -23,12 +23,33 @@ const getAllBrands = async (req, res) => {
       filter.$or = [{ name: { $regex: search, $options: "i" } }];
     }
 
+    // Base query
+    let query = Brand.find(filter).sort({ createdAt: -1 });
+
+    // If page & limit NOT provided → return FULL data
+    if (!page || !limit) {
+      const items = await query;
+      const totalItems = await Brand.countDocuments(filter);
+
+      return res.status(200).json(
+        new ApiResponse(
+          200,
+          {
+            items,
+            pagination: null, // No pagination
+          },
+          "Brands fetched successfully (all items)"
+        )
+      );
+    }
+
+    // Pagination logic (only when page & limit exist)
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
     const skip = (pageNumber - 1) * limitNumber;
 
     const [items, totalItems] = await Promise.all([
-      Brand.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limitNumber),
+      query.skip(skip).limit(limitNumber),
       Brand.countDocuments(filter),
     ]);
 

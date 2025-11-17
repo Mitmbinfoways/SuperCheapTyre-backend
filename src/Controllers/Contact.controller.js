@@ -76,7 +76,7 @@ const createContact = async (req, res) => {
       <p><strong>Message: ${message || "No message provided"}</strong></p>
     `;
     
-    // await sendMail(process.env.SMTP_USER, adminEmailSubject, adminEmailHtml);
+    await sendMail(process.env.SMTP_USER, adminEmailSubject, adminEmailHtml);
 
     return res
       .status(201)
