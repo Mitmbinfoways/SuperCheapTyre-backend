@@ -585,10 +585,16 @@ const HomeData = async (req, res) => {
       { $sample: { size: 1 } },
     ]);
 
+    const banners = await Banner.find({
+      isActive: true,
+      isDelete: false,
+    }).sort({ createdAt: -1 });
+
     return res.status(200).json(
       new ApiResponse(
         200,
         {
+          banners,
           productData: randomProducts,
           bestSeller: sortedBestSellers,
           newArrival: newArrivals,
