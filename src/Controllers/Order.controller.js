@@ -106,8 +106,8 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
                 ${product.brand || "Unknown Brand"} | ${product.sku || "N/A"}
               </span><br>
               <span style="color: #4CAF50; font-weight: bold;">AU$${price.toFixed(
-                2
-              )}</span>
+        2
+      )}</span>
             </div>
           </td>
           <td style="padding: 12px; border-bottom: 1px solid #e0e0e0; text-align: center;">
@@ -161,9 +161,8 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
               <tr>
                 <td style="padding: 30px;">
                   <p style="font-size: 16px; color: #333333; margin: 0 0 20px;">
-                    Hi <strong>${
-                      appointment.firstName || customer.name || "Customer"
-                    } ${appointment.lastName || ""}</strong>,
+                    Hi <strong>${appointment.firstName || customer.name || "Customer"
+    } ${appointment.lastName || ""}</strong>,
                   </p>
                   <p style="font-size: 16px; color: #333333; margin: 0;">
                     Thank you for your order! We've received it and are preparing for your appointment.
@@ -172,37 +171,33 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
               </tr>
 
               <!-- Appointment Details -->
-              ${
-                appointment?.date || appointment?.time
-                  ? `
+              ${appointment?.date || appointment?.time
+      ? `
               <tr>
                 <td style="padding: 0 30px 30px;">
                   <h2 style="color: #333333; font-size: 20px; margin-bottom: 15px; border-bottom: 2px solid #4CAF50; padding-bottom: 10px;">
                     Appointment Details
                   </h2>
                   <table width="100%" cellpadding="8" cellspacing="0">
-                    ${
-                      appointment.date
-                        ? `<tr><td style="color:#666;font-size:14px;width:40%;"><strong>Date:</strong></td><td>${formatDate(
-                            appointment.date
-                          )}</td></tr>`
-                        : ""
-                    }
-                    ${
-                      appointment.time
-                        ? `<tr><td style="color:#666;font-size:14px;"><strong>Time:</strong></td><td>${appointment.time}</td></tr>`
-                        : ""
-                    }
-                    ${
-                      appointment.phone
-                        ? `<tr><td style="color:#666;font-size:14px;"><strong>Phone:</strong></td><td>+${appointment.phone}</td></tr>`
-                        : ""
-                    }
+                    ${appointment.date
+        ? `<tr><td style="color:#666;font-size:14px;width:40%;"><strong>Date:</strong></td><td>${formatDate(
+          appointment.date
+        )}</td></tr>`
+        : ""
+      }
+                    ${appointment.time
+        ? `<tr><td style="color:#666;font-size:14px;"><strong>Time:</strong></td><td>${appointment.time}</td></tr>`
+        : ""
+      }
+                    ${appointment.phone
+        ? `<tr><td style="color:#666;font-size:14px;"><strong>Phone:</strong></td><td>${appointment.phone}</td></tr>`
+        : ""
+      }
                   </table>
                 </td>
               </tr>`
-                  : ""
-              }
+      : ""
+    }
 
               <!-- Order Items -->
               <tr>
@@ -226,19 +221,16 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
                <tr>
                 <td style="padding: 0 30px 30px;">
                   <div style="
-                    background-color: ${
-                      payment.status === "completed" ? "#e8f5e9" : "#fff3e0"
-                    };
+                    background-color: ${payment.status === "completed" ? "#e8f5e9" : "#fff3e0"
+    };
                     padding: 15px;
                     border-radius: 4px;
-                    border-left: 4px solid ${
-                      payment.status === "completed" ? "#4CAF50" : "#FF9800"
-                    };
+                    border-left: 4px solid ${payment.status === "completed" ? "#4CAF50" : "#FF9800"
+    };
                   ">
                     <p style="margin: 0; color: #333; font-size: 14px;">
-                      <strong>Payment Status:</strong> ${
-                        payment.status || "pending"
-                      } 
+                      <strong>Payment Status:</strong> ${payment.status || "pending"
+    } 
                       ${payment.method ? ` • Method: ${payment.method}` : ""}
                     </p>
                   </div>
@@ -448,17 +440,17 @@ const createOrder = async (req, res) => {
     });
 
     // Send confirmation email
-    // try {
-    //   const emailHTML = generateOrderConfirmationEmail(order);
-    //   await sendMail(
-    //     appointment.email,
-    //     "Order Confirmation - Your Appointment is Confirmed!",
-    //     emailHTML
-    //   );
-    //   console.log(`Confirmation email sent to ${appointment.email}`);
-    // } catch (emailError) {
-    //   console.error("Failed to send confirmation email:", emailError);
-    // }
+    try {
+      const emailHTML = generateOrderConfirmationEmail(order);
+      await sendMail(
+        appointment.email,
+        "Order Confirmation - Your Appointment is Confirmed!",
+        emailHTML
+      );
+      console.log(`Confirmation email sent to ${appointment.email}`);
+    } catch (emailError) {
+      console.error("Failed to send confirmation email:", emailError);
+    }
 
     return res
       .status(201)
@@ -675,11 +667,11 @@ const DownloadPDF = async (req, res) => {
     doc.circle(318, yPos + 88, 3).fill(accentColor);
     const formattedAppointmentDate = order.appointment.date
       ? new Date(order.appointment.date).toLocaleDateString("en-US", {
-          weekday: "short",
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        })
+        weekday: "short",
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
       : "N/A";
     doc
       .fontSize(9)
@@ -839,8 +831,8 @@ const DownloadPDF = async (req, res) => {
         order.payment.status === "completed"
           ? successColor
           : order.payment.status === "pending"
-          ? warningColor
-          : dangerColor;
+            ? warningColor
+            : dangerColor;
 
       doc
         .fontSize(10)
