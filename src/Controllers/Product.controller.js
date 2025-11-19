@@ -533,63 +533,77 @@ const DashboardCount = async (req, res) => {
 
 const HomeData = async (req, res) => {
   try {
-    const bestSellersAgg = await Order.aggregate([
-      { $unwind: "$items" },
-      {
-        $group: {
-          _id: "$items.id",
-          totalOrdered: { $sum: "$items.quantity" },
+    const [
+      bestSellersAgg,
+      randomProducts,
+      newArrivals,
+      popularProduct,
+      banners,
+    ] = await Promise.all([
+      Order.aggregate([
+        { $unwind: "$items" },
+        {
+          $group: {
+            _id: "$items.id",
+            totalOrdered: { $sum: "$items.quantity" },
+          },
         },
-      },
-      { $sort: { totalOrdered: -1 } },
-      { $limit: 2 },
+        { $sort: { totalOrdered: -1 } },
+        { $limit: 4 },
+      ]),
+
+      Product.aggregate([
+        { $match: { isActive: true, isDelete: false } },
+        { $sample: { size: 10 } },
+      ]),
+
+      Product.find({ isActive: true, isDelete: false })
+        .sort({ createdAt: -1 })
+        .limit(1)
+        .lean(),
+
+      Product.aggregate([
+        { $match: { isPopular: true, isActive: true, isDelete: false } },
+        { $sample: { size: 1 } },
+      ]),
+
+      Banner.find({ isActive: true, isDelete: false })
+        .sort({ createdAt: -1 })
+        .lean(),
     ]);
 
-    let bestSellerProducts = [];
     let sortedBestSellers = [];
 
     if (bestSellersAgg.length > 0) {
-      const bestSellerIds = bestSellersAgg.map(
-        (p) => new mongoose.Types.ObjectId(p._id)
-      );
+      const bestSellerIds = bestSellersAgg.map((p) => p._id);
 
-      bestSellerProducts = await Product.find({
+      const bestSellerProducts = await Product.find({
         _id: { $in: bestSellerIds },
-      });
+      }).lean();
 
-      sortedBestSellers = bestSellerIds.map((id) =>
-        bestSellerProducts.find((p) => p._id.equals(id))
-      );
+      const productMap = bestSellerProducts.reduce((map, product) => {
+        map[product._id.toString()] = product;
+        return map;
+      }, {});
+
+      sortedBestSellers = bestSellerIds
+        .map((id) => productMap[id.toString()])
+        .filter(Boolean)
+        .slice(0, 2);
     }
 
-    if (bestSellerProducts.length === 0) {
-      sortedBestSellers = await Product.find({})
+    if (sortedBestSellers.length === 0) {
+      const recentProducts = await Product.find({
+        isActive: true,
+        isDelete: false,
+      })
         .sort({ createdAt: -1 })
-        .limit(2);
+        .limit(2)
+        .lean();
+      sortedBestSellers = recentProducts;
     }
 
-    const randomProducts = await Product.aggregate([
-      { $match: { isActive: true, isDelete: false } },
-      { $sample: { size: 10 } },
-    ]);
-
-    const newArrivals = await Product.find({
-      isActive: true,
-      isDelete: false,
-    })
-      .sort({ createdAt: -1 })
-      .limit(1);
-
-    const popularProduct = await Product.aggregate([
-      { $match: { isPopular: true, isActive: true, isDelete: false } },
-      { $sample: { size: 1 } },
-    ]);
-
-    const banners = await Banner.find({
-      isActive: true,
-      isDelete: false,
-    }).sort({ createdAt: -1 });
-
+    // Final response
     return res.status(200).json(
       new ApiResponse(
         200,
@@ -597,14 +611,14 @@ const HomeData = async (req, res) => {
           banners,
           productData: randomProducts,
           bestSeller: sortedBestSellers,
-          newArrival: newArrivals,
+          newArrival: newArrivals[0] || null,
           popularProduct: popularProduct[0] || null,
         },
         "HomeData fetched successfully"
       )
     );
   } catch (error) {
-    console.error(error);
+    console.error("Error in HomeData:", error);
     return res.status(500).json({
       status: 500,
       message: "Internal Server Error",
