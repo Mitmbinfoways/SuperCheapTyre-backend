@@ -1053,4 +1053,265 @@ const DownloadPDF = async (req, res) => {
   }
 };
 
-module.exports = { createOrder, getAllOrders, DownloadPDF };
+const updateOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { amount, status, note } = req.body;
+
+    if (!mongoose.isValidObjectId(orderId)) {
+      return res.status(400).json(new ApiError(400, "Invalid Order ID"));
+    }
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json(new ApiError(404, "Order not found"));
+    }
+
+    if (!amount || typeof amount !== "number" || amount <= 0) {
+      return res
+        .status(400)
+        .json(new ApiError(400, "Valid payment amount is required"));
+    }
+
+    const validStatuses = ["partial", "full"];
+    if (!status || !validStatuses.includes(status)) {
+      return res
+        .status(400)
+        .json(
+          new ApiError(
+            400,
+            `Payment status must be one of: ${validStatuses.join(", ")}`
+          )
+        );
+    }
+
+    const newPayment = {
+      method: "cash",
+      amount,
+      status,
+      currency: "AU$",
+      transactionId: "",
+      note: note?.trim() || "",
+      paidAt: new Date(),
+    };
+
+    const currentPayments =
+      order.payment && Array.isArray(order.payment) ? order.payment : [];
+
+    const updatedPayments = [...currentPayments, newPayment];
+
+    const totalPaid = updatedPayments.reduce(
+      (sum, p) => sum + (p.amount || 0),
+      0
+    );
+
+    if (totalPaid >= order.total) {
+      newPayment.status = "full"; // last payment closes the order
+    }
+
+    const updatedOrder = await Order.findByIdAndUpdate(
+      orderId,
+      {
+        $set: {
+          payment: updatedPayments,
+          totalPaid: totalPaid,
+          status: totalPaid >= order.total ? "full" : "partial",
+        },
+      },
+      { new: true, runValidators: true }
+    );
+
+    // 10. Success response
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          order: updatedOrder,
+          addedPayment: newPayment,
+          totalPaid,
+          remainingBalance: Math.max(0, order.total - totalPaid),
+        },
+        "Cash payment added successfully"
+      )
+    );
+  } catch (error) {
+    console.error("Error adding cash payment:", error);
+    return res
+      .status(500)
+      .json(new ApiError(500, error.message || "Failed to add cash payment"));
+  }
+};
+
+const createLocalOrder = async (req, res) => {
+  try {
+    const {
+      items,
+      subtotal,
+      total,
+      customer,
+      payment,
+      appointment, // optional – can be partial or completely absent
+    } = req.body;
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res
+        .status(400)
+        .json(new ApiError(400, "Order items are required"));
+    }
+
+    for (const item of items) {
+      if (!item.id || typeof item.quantity !== "number" || item.quantity <= 0) {
+        return res
+          .status(400)
+          .json(
+            new ApiError(400, "Each item must have a valid id and quantity > 0")
+          );
+      }
+    }
+
+    if (!customer || !customer.name || !customer.phone) {
+      return res
+        .status(400)
+        .json(new ApiError(400, "Customer name and phone are required"));
+    }
+
+    const customerData = {
+      name: customer.name.trim(),
+      phone: customer.phone.trim(),
+      email: customer.email?.trim() || "",
+    };
+
+    const validPaymentMethods = ["card", "cash", "online", "bank_transfer"];
+    const validPaymentStatuses = ["pending", "partial", "full", "failed"];
+
+    const paymentData = {
+      amount: typeof payment?.amount === "number" ? payment.amount : total || 0,
+      method:
+        payment?.method && validPaymentMethods.includes(payment.method)
+          ? payment.method
+          : "cash", // default for walk-in
+      status:
+        payment?.status && validPaymentStatuses.includes(payment.status)
+          ? payment.status
+          : "pending",
+      currency: payment?.currency || "AU$",
+      transactionId: payment?.transactionId || "",
+      providerPayload: payment?.providerPayload || null,
+      note: payment?.note || "",
+      paidAt: payment?.paidAt ? new Date(payment.paidAt) : null,
+    };
+
+    const productIds = items.map((item) => item.id);
+    const products = await Product.find({ _id: { $in: productIds } }).lean();
+
+    if (products.length !== items.length) {
+      return res
+        .status(400)
+        .json(new ApiError(400, "One or more products not found or inactive"));
+    }
+
+    for (const item of items) {
+      const product = products.find((p) => p._id.toString() === item.id);
+      if (!product || product.stock < item.quantity) {
+        return res
+          .status(400)
+          .json(
+            new ApiError(
+              400,
+              `Insufficient stock for "${
+                product?.name || "product"
+              }". Available: ${product?.stock || 0}, Requested: ${
+                item.quantity
+              }`
+            )
+          );
+      }
+    }
+
+    for (const item of items) {
+      await Product.findByIdAndUpdate(
+        item.id,
+        { $inc: { stock: -item.quantity } },
+        { new: true, runValidators: true }
+      );
+    }
+
+    const updatedProducts = await Product.find({
+      _id: { $in: productIds },
+    }).lean();
+
+    const enrichedItems = items.map((item) => {
+      const product = updatedProducts.find((p) => p._id.toString() === item.id);
+      return {
+        id: item.id,
+        name: product.name,
+        brand: product.brand || "",
+        sku: product.sku || "",
+        category: product.category || "",
+        image: product.images?.[0] || "",
+        price: product.price,
+        quantity: item.quantity,
+      };
+    });
+
+    const appointmentData = appointment
+      ? {
+          id: appointment.id || null,
+          firstName: appointment.firstName || "",
+          lastName: appointment.lastName || "",
+          phone: appointment.phone || "",
+          email: appointment.email || "",
+          date: appointment.date || "",
+          time: appointment.time || "",
+          slotId: appointment.slotId || "",
+          timeSlotId: appointment.timeSlotId || "",
+        }
+      : {
+          id: null,
+          firstName: "",
+          lastName: "",
+          phone: "",
+          email: "",
+          date: "",
+          time: "Walk-in / Local Order",
+          slotId: "",
+          timeSlotId: "",
+        };
+
+    const order = await Order.create({
+      items: enrichedItems,
+      subtotal: Number(subtotal),
+      total: Number(total),
+      customer: customerData,
+      appointment: appointmentData,
+      payment: [paymentData],
+    });
+
+    if (customerData.email) {
+      try {
+        console.log(
+          `Order confirmation email would be sent to ${customerData.email}`
+        );
+      } catch (emailError) {
+        console.error("Failed to send order confirmation email:", emailError);
+      }
+    }
+
+    return res
+      .status(201)
+      .json(new ApiResponse(201, order, "Local order created successfully"));
+  } catch (error) {
+    console.error("Error creating local order:", error);
+    return res
+      .status(500)
+      .json(new ApiError(500, error.message || "Failed to create local order"));
+  }
+};
+
+module.exports = {
+  createOrder,
+  getAllOrders,
+  DownloadPDF,
+  updateOrder,
+  createLocalOrder,
+};

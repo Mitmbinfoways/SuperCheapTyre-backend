@@ -18,6 +18,8 @@ const paymentSchema = new mongoose.Schema({
   amount: { type: Number, default: 0 },
   currency: { type: String, default: "AU$" },
   providerPayload: { type: Object },
+  note: { type: String, default: "" },
+  paidAt: { type: Date, default: "" },
 });
 
 const customerSchema = new mongoose.Schema({
@@ -27,15 +29,15 @@ const customerSchema = new mongoose.Schema({
 });
 
 const appointmentSchema = new mongoose.Schema({
-  id: { type: String, required: true },
-  firstName: { type: String, required: true },
-  lastName: { type: String, required: true },
-  phone: { type: String, required: true },
-  email: { type: String, required: true },
-  date: { type: String, required: true },
-  time: { type: String, required: true },
-  slotId: { type: String, required: true },
-  timeSlotId: { type: String, required: true },
+  id: { type: String },
+  firstName: { type: String },
+  lastName: { type: String },
+  phone: { type: String },
+  email: { type: String },
+  date: { type: String },
+  time: { type: String },
+  slotId: { type: String },
+  timeSlotId: { type: String },
 });
 
 const orderSchema = new mongoose.Schema(

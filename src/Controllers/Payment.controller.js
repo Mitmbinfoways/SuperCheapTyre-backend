@@ -42,6 +42,8 @@ const payment = async (req, res) => {
             cancel_url: `${process.env.CLIENT_URL}/cancel`,
         });
 
+        console.log(session)
+
         // Return the session URL instead of just the ID
         res.json({ 
             id: session.id,
