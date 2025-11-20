@@ -45,7 +45,7 @@ const orderSchema = new mongoose.Schema(
     total: { type: Number, required: true },
     appointment: { type: appointmentSchema, required: true },
     customer: { type: customerSchema, required: true },
-    payment: { type: paymentSchema },
+    payment: { type: [paymentSchema] },
   },
   { timestamps: true }
 );

@@ -86,7 +86,7 @@ const getAllProducts = async (req, res) => {
       };
 
     if (stock === "low-stock") {
-      filter.stock = { $lte: 5 };
+      filter.stock = { $lte: 2 };
     }
 
     if (search) {
@@ -549,7 +549,7 @@ const HomeData = async (req, res) => {
           },
         },
         { $sort: { totalOrdered: -1 } },
-        { $limit: 4 },
+        { $limit: 3 },
       ]),
 
       Product.aggregate([

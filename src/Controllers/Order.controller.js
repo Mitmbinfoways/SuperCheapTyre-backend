@@ -13,7 +13,14 @@ const fs = require("fs");
 
 const getAllOrders = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search } = req.query;
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      status,
+      startDate,
+      endDate,
+    } = req.query;
 
     const filter = {};
 
@@ -22,11 +29,34 @@ const getAllOrders = async (req, res) => {
       filter.$or = [
         { "customer.name": searchRegex },
         { "customer.phone": searchRegex },
+        { "customer.email": searchRegex },
       ];
     }
 
-    const pageNumber = parseInt(page, 10);
-    const limitNumber = parseInt(limit, 10);
+    if (status === "full") {
+      filter["payment.status"] = "full";
+    } else if (status === "partial") {
+      filter["payment.status"] = "partial";
+    }
+
+    if (startDate || endDate) {
+      filter.createdAt = {};
+
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        filter.createdAt.$gte = start;
+      }
+
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = end;
+      }
+    }
+
+    const pageNumber = Math.max(1, parseInt(page, 10));
+    const limitNumber = Math.min(100, Math.max(1, parseInt(limit, 10))); // safe limits
     const skip = (pageNumber - 1) * limitNumber;
 
     const orders = await Order.find(filter)
@@ -36,19 +66,30 @@ const getAllOrders = async (req, res) => {
       .lean();
 
     const productIds = [
-      ...new Set(orders.flatMap((order) => order.items.map((i) => i.id))),
+      ...new Set(orders.flatMap((order) => order.items.map((item) => item.id))),
     ];
 
-    const products = await Product.find({ _id: { $in: productIds } })
-      .select("name price images sku")
-      .lean();
+    const products =
+      productIds.length > 0
+        ? await Product.find({ _id: { $in: productIds } })
+            .select("name price images sku")
+            .lean()
+        : [];
+
+    const productMap = Object.fromEntries(
+      products.map((p) => [p._id.toString(), p])
+    );
 
     const enrichedOrders = orders.map((order) => ({
       ...order,
       items: order.items.map((item) => ({
         ...item,
-        productDetails:
-          products.find((p) => p._id.toString() === item.id.toString()) || null,
+        productDetails: productMap[item.id] || {
+          name: "Product Not Found",
+          price: item.price,
+          images: [item.image || ""],
+          sku: item.sku || "N/A",
+        },
       })),
     }));
 
@@ -73,7 +114,7 @@ const getAllOrders = async (req, res) => {
       );
   } catch (error) {
     console.error("Error fetching orders:", error);
-    return res.status(500).json(new ApiError(500, "Internal Server Error"));
+    return res.status(500).json(new ApiError(500, "Failed to fetch orders"));
   }
 };
 
@@ -106,8 +147,8 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
                 ${product.brand || "Unknown Brand"} | ${product.sku || "N/A"}
               </span><br>
               <span style="color: #4CAF50; font-weight: bold;">AU$${price.toFixed(
-        2
-      )}</span>
+                2
+              )}</span>
             </div>
           </td>
           <td style="padding: 12px; border-bottom: 1px solid #e0e0e0; text-align: center;">
@@ -161,8 +202,9 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
               <tr>
                 <td style="padding: 30px;">
                   <p style="font-size: 16px; color: #333333; margin: 0 0 20px;">
-                    Hi <strong>${appointment.firstName || customer.name || "Customer"
-    } ${appointment.lastName || ""}</strong>,
+                    Hi <strong>${
+                      appointment.firstName || customer.name || "Customer"
+                    } ${appointment.lastName || ""}</strong>,
                   </p>
                   <p style="font-size: 16px; color: #333333; margin: 0;">
                     Thank you for your order! We've received it and are preparing for your appointment.
@@ -171,33 +213,37 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
               </tr>
 
               <!-- Appointment Details -->
-              ${appointment?.date || appointment?.time
-      ? `
+              ${
+                appointment?.date || appointment?.time
+                  ? `
               <tr>
                 <td style="padding: 0 30px 30px;">
                   <h2 style="color: #333333; font-size: 20px; margin-bottom: 15px; border-bottom: 2px solid #4CAF50; padding-bottom: 10px;">
                     Appointment Details
                   </h2>
                   <table width="100%" cellpadding="8" cellspacing="0">
-                    ${appointment.date
-        ? `<tr><td style="color:#666;font-size:14px;width:40%;"><strong>Date:</strong></td><td>${formatDate(
-          appointment.date
-        )}</td></tr>`
-        : ""
-      }
-                    ${appointment.time
-        ? `<tr><td style="color:#666;font-size:14px;"><strong>Time:</strong></td><td>${appointment.time}</td></tr>`
-        : ""
-      }
-                    ${appointment.phone
-        ? `<tr><td style="color:#666;font-size:14px;"><strong>Phone:</strong></td><td>${appointment.phone}</td></tr>`
-        : ""
-      }
+                    ${
+                      appointment.date
+                        ? `<tr><td style="color:#666;font-size:14px;width:40%;"><strong>Date:</strong></td><td>${formatDate(
+                            appointment.date
+                          )}</td></tr>`
+                        : ""
+                    }
+                    ${
+                      appointment.time
+                        ? `<tr><td style="color:#666;font-size:14px;"><strong>Time:</strong></td><td>${appointment.time}</td></tr>`
+                        : ""
+                    }
+                    ${
+                      appointment.phone
+                        ? `<tr><td style="color:#666;font-size:14px;"><strong>Phone:</strong></td><td>${appointment.phone}</td></tr>`
+                        : ""
+                    }
                   </table>
                 </td>
               </tr>`
-      : ""
-    }
+                  : ""
+              }
 
               <!-- Order Items -->
               <tr>
@@ -221,16 +267,19 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
                <tr>
                 <td style="padding: 0 30px 30px;">
                   <div style="
-                    background-color: ${payment.status === "completed" ? "#e8f5e9" : "#fff3e0"
-    };
+                    background-color: ${
+                      payment.status === "completed" ? "#e8f5e9" : "#fff3e0"
+                    };
                     padding: 15px;
                     border-radius: 4px;
-                    border-left: 4px solid ${payment.status === "completed" ? "#4CAF50" : "#FF9800"
-    };
+                    border-left: 4px solid ${
+                      payment.status === "completed" ? "#4CAF50" : "#FF9800"
+                    };
                   ">
                     <p style="margin: 0; color: #333; font-size: 14px;">
-                      <strong>Payment Status:</strong> ${payment.status || "pending"
-    } 
+                      <strong>Payment Status:</strong> ${
+                        payment.status || "pending"
+                      } 
                       ${payment.method ? ` • Method: ${payment.method}` : ""}
                     </p>
                   </div>
@@ -667,11 +716,11 @@ const DownloadPDF = async (req, res) => {
     doc.circle(318, yPos + 88, 3).fill(accentColor);
     const formattedAppointmentDate = order.appointment.date
       ? new Date(order.appointment.date).toLocaleDateString("en-US", {
-        weekday: "short",
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      })
+          weekday: "short",
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        })
       : "N/A";
     doc
       .fontSize(9)
@@ -831,8 +880,8 @@ const DownloadPDF = async (req, res) => {
         order.payment.status === "completed"
           ? successColor
           : order.payment.status === "pending"
-            ? warningColor
-            : dangerColor;
+          ? warningColor
+          : dangerColor;
 
       doc
         .fontSize(10)
