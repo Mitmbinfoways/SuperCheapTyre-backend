@@ -4,4 +4,5 @@ const { payment } = require("../Controllers/Payment.controller");
 
 router.post("/", payment);
 
+
 module.exports = router;

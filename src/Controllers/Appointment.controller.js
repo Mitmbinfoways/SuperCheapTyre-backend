@@ -6,10 +6,9 @@ const Technician = require("../Models/Technician.model");
 
 const getAllAppointments = async (req, res) => {
   try {
-    const { date, status, search, page = 1, limit = 10 } = req.query;
+    const { status, search, page = 1, limit = 10 } = req.query;
 
     const filter = {};
-    if (date) filter.date = date;
     if (status) filter.status = status;
     if (search) {
       const searchRegex = { $regex: search, $options: "i" };
@@ -33,9 +32,7 @@ const getAllAppointments = async (req, res) => {
       .lean();
 
     const technicianIds = [
-      ...new Set(
-        appointments.map((a) => a.Employee).filter((id) => !!id)
-      ),
+      ...new Set(appointments.map((a) => a.Employee).filter((id) => !!id)),
     ];
 
     const technicians = await Technician.find({

@@ -94,7 +94,7 @@ const RequestReset = async (req, res) => {
       expiresIn: "1m",
     });
 
-    const resetLink = `http://localhost:3000/reset-password?token=${resetToken}`;
+    const resetLink = `${process.env.ADMIN_URL}/reset-password?token=${resetToken}`;
 
     const htmlContent = `
       <h2>Password Reset Request</h2>

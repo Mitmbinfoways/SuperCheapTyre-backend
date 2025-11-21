@@ -40,7 +40,7 @@ app.use("/api/v1/contact", ContactRoute);
 app.use("/api/v1/order", OrderRoute);
 app.use("/api/v1/blog", BlogRoute);
 app.use("/api/v1/brand", BrandRoute);
-app.use("/api/payment", PaymentRoute);
+app.use("/api/v1/payment", PaymentRoute);
 app.use("/api/v1/masterFilter", MasterFilterRoute);
 app.use("/api/v1/google", GoogleRoute);
 app.use("/api/v1/banner", BannerRoute);

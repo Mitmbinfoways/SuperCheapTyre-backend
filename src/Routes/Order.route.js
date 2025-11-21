@@ -12,5 +12,4 @@ OrderRoute.post("/", createOrder);
 OrderRoute.get("/download/:orderId", DownloadPDF);
 OrderRoute.post("/local", createLocalOrder);
 
-
 module.exports = OrderRoute;

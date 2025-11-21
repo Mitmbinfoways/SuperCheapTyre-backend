@@ -20,6 +20,7 @@ const getAllOrders = async (req, res) => {
       status,
       startDate,
       endDate,
+      dateFilter,
     } = req.query;
 
     const filter = {};
@@ -39,7 +40,87 @@ const getAllOrders = async (req, res) => {
       filter["payment.status"] = "partial";
     }
 
-    if (startDate || endDate) {
+    // Handle date filtering based on dateFilter parameter
+    if (dateFilter) {
+      const now = new Date();
+      filter.createdAt = {};
+
+      switch (dateFilter.toLowerCase()) {
+        case "today":
+          const todayStart = new Date(now);
+          todayStart.setHours(0, 0, 0, 0);
+          const todayEnd = new Date(now);
+          todayEnd.setHours(23, 59, 59, 999);
+          filter.createdAt.$gte = todayStart;
+          filter.createdAt.$lte = todayEnd;
+          break;
+
+        case "yesterday":
+          const yesterday = new Date(now);
+          yesterday.setDate(yesterday.getDate() - 1);
+          const yesterdayStart = new Date(yesterday);
+          yesterdayStart.setHours(0, 0, 0, 0);
+          const yesterdayEnd = new Date(yesterday);
+          yesterdayEnd.setHours(23, 59, 59, 999);
+          filter.createdAt.$gte = yesterdayStart;
+          filter.createdAt.$lte = yesterdayEnd;
+          break;
+
+        case "this week":
+          const weekStart = new Date(now);
+          weekStart.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1)); // Monday as start of week
+          weekStart.setHours(0, 0, 0, 0);
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekStart.getDate() + 6);
+          weekEnd.setHours(23, 59, 59, 999);
+          filter.createdAt.$gte = weekStart;
+          filter.createdAt.$lte = weekEnd;
+          break;
+
+        case "this month":
+          const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+          monthStart.setHours(0, 0, 0, 0);
+          const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+          monthEnd.setHours(23, 59, 59, 999);
+          filter.createdAt.$gte = monthStart;
+          filter.createdAt.$lte = monthEnd;
+          break;
+
+        case "custom range":
+          if (startDate || endDate) {
+            if (startDate) {
+              const start = new Date(startDate);
+              start.setHours(0, 0, 0, 0);
+              filter.createdAt.$gte = start;
+            }
+
+            if (endDate) {
+              const end = new Date(endDate);
+              end.setHours(23, 59, 59, 999);
+              filter.createdAt.$lte = end;
+            }
+          }
+          break;
+
+        default:
+          // If dateFilter is not recognized, we can fall back to startDate/endDate if provided
+          if (startDate || endDate) {
+            if (startDate) {
+              const start = new Date(startDate);
+              start.setHours(0, 0, 0, 0);
+              filter.createdAt.$gte = start;
+            }
+
+            if (endDate) {
+              const end = new Date(endDate);
+              end.setHours(23, 59, 59, 999);
+              filter.createdAt.$lte = end;
+            }
+          }
+          break;
+      }
+    } else if (startDate || endDate) {
+      // Fallback to existing startDate/endDate handling if dateFilter is not provided
       filter.createdAt = {};
 
       if (startDate) {
@@ -214,7 +295,7 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
 
               <!-- Appointment Details -->
               ${
-                appointment?.date || appointment?.time
+                appointment?.date || appointment?.time || "-"
                   ? `
               <tr>
                 <td style="padding: 0 30px 30px;">
@@ -225,19 +306,19 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
                     ${
                       appointment.date
                         ? `<tr><td style="color:#666;font-size:14px;width:40%;"><strong>Date:</strong></td><td>${formatDate(
-                            appointment.date
+                            appointment.date || "-"
                           )}</td></tr>`
-                        : ""
+                        : "-"
                     }
                     ${
                       appointment.time
                         ? `<tr><td style="color:#666;font-size:14px;"><strong>Time:</strong></td><td>${appointment.time}</td></tr>`
-                        : ""
+                        : "-"
                     }
                     ${
                       appointment.phone
                         ? `<tr><td style="color:#666;font-size:14px;"><strong>Phone:</strong></td><td>${appointment.phone}</td></tr>`
-                        : ""
+                        : "-"
                     }
                   </table>
                 </td>
@@ -610,7 +691,7 @@ const DownloadPDF = async (req, res) => {
         .text("INVOICE", 320, 15, { align: "right", width: 230 });
       doc.fontSize(9).fillColor("#cbd5e1").font("Helvetica");
       doc.text(
-        `Invoice #: INV-${order._id.toString().slice(-8).toUpperCase()}`,
+        `Invoice #: INV-${order._id?.toString()?.slice(-8)?.toUpperCase()}`,
         320,
         52,
         { align: "right", width: 230 }
@@ -888,7 +969,7 @@ const DownloadPDF = async (req, res) => {
         .fillColor(paymentStatusColor)
         .font("Helvetica-Bold")
         .text(
-          order.payment.status.toUpperCase(),
+          order?.payment?.status?.toUpperCase(),
           leftBoxX + 18,
           paymentBoxY + 36
         );
@@ -1273,7 +1354,7 @@ const createLocalOrder = async (req, res) => {
           phone: "",
           email: "",
           date: "",
-          time: "Walk-in / Local Order",
+          time: "Local Store Order",
           slotId: "",
           timeSlotId: "",
         };
