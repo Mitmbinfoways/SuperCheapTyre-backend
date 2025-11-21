@@ -34,8 +34,8 @@ const getAllProducts = async (req, res) => {
       search,
       sortBy,
       stock,
-      page = 1,
-      limit = 10,
+      page,
+      limit,
     } = req.query;
 
     const filter = {};

@@ -1250,7 +1250,7 @@ const createLocalOrder = async (req, res) => {
       }
     }
 
-    if (!customer || !customer.name || !customer.phone) {
+    if (!customer || !customer.firstName || !customer.phone) {
       return res
         .status(400)
         .json(new ApiError(400, "Customer name and phone are required"));
@@ -1349,12 +1349,12 @@ const createLocalOrder = async (req, res) => {
         }
       : {
           id: null,
-          firstName: "",
-          lastName: "",
-          phone: "",
-          email: "",
+          firstName: customerData.firstName || "",
+          lastName: customerData.lastName || "",
+          phone: customerData.phone || "",
+          email: customerData.email || "",
           date: "",
-          time: "Local Store Order",
+          time: "Offline",
           slotId: "",
           timeSlotId: "",
         };
