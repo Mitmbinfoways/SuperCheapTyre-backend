@@ -68,7 +68,9 @@ const getAllOrders = async (req, res) => {
 
         case "this week":
           const weekStart = new Date(now);
-          weekStart.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1)); // Monday as start of week
+          weekStart.setDate(
+            now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1)
+          ); // Monday as start of week
           weekStart.setHours(0, 0, 0, 0);
           const weekEnd = new Date(weekStart);
           weekEnd.setDate(weekStart.getDate() + 6);
@@ -1137,7 +1139,7 @@ const DownloadPDF = async (req, res) => {
 const updateOrder = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { amount, status, note } = req.body;
+    const { method = "cash", amount, status, note } = req.body;
 
     if (!mongoose.isValidObjectId(orderId)) {
       return res.status(400).json(new ApiError(400, "Invalid Order ID"));
@@ -1166,28 +1168,36 @@ const updateOrder = async (req, res) => {
         );
     }
 
+    let currentPayments = [];
+
+    if (Array.isArray(order.payment)) {
+      currentPayments = order.payment;
+    } else if (order.payment && typeof order.payment === "object") {
+      currentPayments = [order.payment];
+      console.log(`Fixed non-array payment field for order ${orderId}`);
+    }
+
     const newPayment = {
-      method: "cash",
+      method,
       amount,
-      status,
+      status, // respect what user sent
       currency: "AU$",
       transactionId: "",
       note: note?.trim() || "",
       paidAt: new Date(),
     };
 
-    const currentPayments =
-      order.payment && Array.isArray(order.payment) ? order.payment : [];
-
     const updatedPayments = [...currentPayments, newPayment];
-
     const totalPaid = updatedPayments.reduce(
       (sum, p) => sum + (p.amount || 0),
       0
     );
 
-    if (totalPaid >= order.total) {
-      newPayment.status = "full"; // last payment closes the order
+    const isFullyPaid = totalPaid >= order.total;
+    const finalOrderStatus = isFullyPaid ? "full" : "partial";
+
+    if (isFullyPaid && newPayment.status !== "full") {
+      newPayment.status = "full"; // auto-correct if this payment closes the order
     }
 
     const updatedOrder = await Order.findByIdAndUpdate(
@@ -1196,13 +1206,12 @@ const updateOrder = async (req, res) => {
         $set: {
           payment: updatedPayments,
           totalPaid: totalPaid,
-          status: totalPaid >= order.total ? "full" : "partial",
+          status: finalOrderStatus,
         },
       },
       { new: true, runValidators: true }
     );
 
-    // 10. Success response
     return res.status(200).json(
       new ApiResponse(
         200,
