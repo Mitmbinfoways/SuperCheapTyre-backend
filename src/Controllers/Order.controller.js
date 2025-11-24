@@ -671,14 +671,19 @@ const DownloadPDF = async (req, res) => {
     doc.text(order.customer.phone, 58, yPos + 55);
     doc.text(order.customer.email || "N/A", 58, yPos + 70);
 
-    doc.opacity(0.03);
-    doc.roundedRect(295, yPos, 260, 110, 8).fill(accentColor);
-    doc.opacity(1);
-    doc.roundedRect(295, yPos, 260, 110, 8).lineWidth(1.5).stroke(borderColor);
-
-    // Conditionally display appointment details section only if both firstName and lastName exist and are non-empty
-    if (order.appointment.firstName && order.appointment.lastName && 
-        order.appointment.firstName.trim() !== "" && order.appointment.lastName.trim() !== "") {
+    if (
+      order.appointment.firstName &&
+      order.appointment.lastName &&
+      order.appointment.firstName.trim() !== "" &&
+      order.appointment.lastName.trim() !== ""
+    ) {
+      doc.opacity(0.03);
+      doc.roundedRect(295, yPos, 260, 110, 8).fill(accentColor);
+      doc.opacity(1);
+      doc
+        .roundedRect(295, yPos, 260, 110, 8)
+        .lineWidth(1.5)
+        .stroke(borderColor);
       doc
         .fontSize(9)
         .fillColor(textSecondary)
@@ -747,14 +752,14 @@ const DownloadPDF = async (req, res) => {
     renderTableHeader();
 
     let rowIndex = 0;
-    
+
     // Calculate if we need to move summary box to second page
     // Alternative approach: Pre-calculate space needed for items
     let itemsEndYPos = yPos;
     let itemsWillNeedNewPage = false;
     let currentPageItemsCount = 0;
     let itemsPerPageEstimate = Math.floor((pageHeight - yPos) / 35); // Estimate with minimum row height
-    
+
     // If we have 4 or more items, or if items likely won't fit with summary box
     if (order.items.length >= 4 || order.items.length > itemsPerPageEstimate) {
       itemsWillNeedNewPage = true;
@@ -854,19 +859,23 @@ const DownloadPDF = async (req, res) => {
     // Find the appropriate payment entry to display
     let paymentToDisplay = null;
     let isPaymentPending = false;
-    
-    if (order.payment && Array.isArray(order.payment) && order.payment.length > 0) {
+
+    if (
+      order.payment &&
+      Array.isArray(order.payment) &&
+      order.payment.length > 0
+    ) {
       // Check if any payment entry has status 'full'
-      const fullPayment = order.payment.find(p => p.status === 'full');
+      const fullPayment = order.payment.find((p) => p.status === "full");
       if (fullPayment) {
         paymentToDisplay = fullPayment;
       } else {
         // If no 'full' payment, use the first payment entry
         paymentToDisplay = order.payment[0];
       }
-      
+
       // Check if any payment entry has status 'partial'
-      isPaymentPending = order.payment.some(p => p.status === 'partial');
+      isPaymentPending = order.payment.some((p) => p.status === "partial");
     }
 
     const leftBoxHeight = 85;
@@ -876,7 +885,11 @@ const DownloadPDF = async (req, res) => {
 
     // Alternative approach: Move summary box to second page if there are 4 or more products
     // or if items table likely forced a new page
-    if (order.items.length >= 4 || itemsWillNeedNewPage || yPos + summaryAndFooterHeight > pageHeight) {
+    if (
+      order.items.length >= 4 ||
+      itemsWillNeedNewPage ||
+      yPos + summaryAndFooterHeight > pageHeight
+    ) {
       renderFooter(); // Add footer before new page
       doc.addPage();
       yPos = startYAfterHeader;
@@ -922,7 +935,7 @@ const DownloadPDF = async (req, res) => {
         .fillColor(paymentStatusColor)
         .font("Helvetica-Bold")
         .text(
-          paymentToDisplay?.status?.toUpperCase() || 'N/A',
+          paymentToDisplay?.status?.toUpperCase() || "N/A",
           leftBoxX + 18,
           paymentBoxY + 36
         );
@@ -968,11 +981,7 @@ const DownloadPDF = async (req, res) => {
         .fontSize(10)
         .fillColor(dangerColor)
         .font("Helvetica-Bold")
-        .text(
-          'N/A',
-          leftBoxX + 18,
-          paymentBoxY + 36
-        );
+        .text("N/A", leftBoxX + 18, paymentBoxY + 36);
     }
 
     // Right side - Summary Box
@@ -1030,7 +1039,10 @@ const DownloadPDF = async (req, res) => {
       // Calculate the actual paid amount by summing all payments in the array
       let paidAmount = 0;
       if (order.payment && Array.isArray(order.payment)) {
-        paidAmount = order.payment.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+        paidAmount = order.payment.reduce(
+          (sum, payment) => sum + (payment.amount || 0),
+          0
+        );
       }
       const unpaidAmount = order.subtotal - paidAmount;
 
@@ -1270,7 +1282,7 @@ const createLocalOrder = async (req, res) => {
     };
 
     const validPaymentMethods = ["card", "cash", "online", "bank_transfer"];
-    const validPaymentStatuses = ["partial", "full",];
+    const validPaymentStatuses = ["partial", "full"];
 
     const paymentData = {
       amount: typeof payment?.amount === "number" ? payment.amount : total || 0,
