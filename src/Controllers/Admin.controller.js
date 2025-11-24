@@ -4,6 +4,8 @@ const AdminModel = require("../Models/AdminUser.model");
 const ApiError = require("../Utils/ApiError");
 const ApiResponse = require("../Utils/ApiResponse");
 const sendMail = require("../Utils/Nodemailer");
+const fs = require("fs");
+const path = require("path");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRESIN = process.env.JWT_EXPIRESIN;
@@ -51,7 +53,15 @@ const AdminLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const admin = await AdminModel.findOne({ email });
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json(new ApiError(400, "Email and password are required"));
+    }
+
+    const emailLower = email.trim().toLowerCase();
+
+    const admin = await AdminModel.findOne({ email: emailLower });
     if (!admin) {
       return res.status(404).json(new ApiError(404, "Invalid credentials"));
     }
@@ -165,9 +175,6 @@ const ForgotPassword = async (req, res) => {
     return res.status(500).json(new ApiError(500, "Internal Server Error"));
   }
 };
-
-const fs = require("fs");
-const path = require("path");
 
 const UpdateProfile = async (req, res) => {
   try {

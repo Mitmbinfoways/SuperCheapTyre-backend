@@ -67,4 +67,23 @@ const payment = async (req, res) => {
   }
 };
 
-module.exports = { payment };
+const getSessionStatus = async (req, res) => {
+  const { session_id } = req.query;
+
+  try {
+    const session = await stripe.checkout.sessions.retrieve(session_id, {
+      expand: ["payment_intent"],
+    });
+
+    res.json({
+      status: session.payment_status,
+      transactionId: session.payment_intent?.id || null,
+      amount_total: session.amount_total,
+      currency: session.currency,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+module.exports = { payment, getSessionStatus };

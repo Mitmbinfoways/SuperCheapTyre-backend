@@ -10,6 +10,7 @@ const adminSchema = new mongoose.Schema(
     email: {
       type: String,
       required: true,
+      lowercase: true,
       unique: true,
     },
     password: {
@@ -39,8 +40,8 @@ const adminSchema = new mongoose.Schema(
     toJSON: {
       transform: (doc, ret) => {
         delete ret.password;
-        delete ret.resetPasswordToken; 
-        delete ret.resetPasswordExpires; 
+        delete ret.resetPasswordToken;
+        delete ret.resetPasswordExpires;
         return ret;
       },
     },

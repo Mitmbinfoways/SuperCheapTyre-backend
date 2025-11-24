@@ -13,15 +13,7 @@ const fs = require("fs");
 
 const getAllOrders = async (req, res) => {
   try {
-    const {
-      page = 1,
-      limit = 10,
-      search,
-      status,
-      startDate,
-      endDate,
-      dateFilter,
-    } = req.query;
+    let { page, limit, search } = req.query;
 
     const filter = {};
 
@@ -34,120 +26,23 @@ const getAllOrders = async (req, res) => {
       ];
     }
 
-    if (status === "full") {
-      filter["payment.status"] = "full";
-    } else if (status === "partial") {
-      filter["payment.status"] = "partial";
-    }
+    const isPaginated = page && limit;
 
-    // Handle date filtering based on dateFilter parameter
-    if (dateFilter) {
-      const now = new Date();
-      filter.createdAt = {};
+    const pageNumber = isPaginated ? Math.max(1, parseInt(page, 10)) : 1;
+    const limitNumber = isPaginated
+      ? Math.min(100, Math.max(1, parseInt(limit, 10)))
+      : 0;
 
-      switch (dateFilter.toLowerCase()) {
-        case "today":
-          const todayStart = new Date(now);
-          todayStart.setHours(0, 0, 0, 0);
-          const todayEnd = new Date(now);
-          todayEnd.setHours(23, 59, 59, 999);
-          filter.createdAt.$gte = todayStart;
-          filter.createdAt.$lte = todayEnd;
-          break;
+    const skip = isPaginated ? (pageNumber - 1) * limitNumber : 0;
 
-        case "yesterday":
-          const yesterday = new Date(now);
-          yesterday.setDate(yesterday.getDate() - 1);
-          const yesterdayStart = new Date(yesterday);
-          yesterdayStart.setHours(0, 0, 0, 0);
-          const yesterdayEnd = new Date(yesterday);
-          yesterdayEnd.setHours(23, 59, 59, 999);
-          filter.createdAt.$gte = yesterdayStart;
-          filter.createdAt.$lte = yesterdayEnd;
-          break;
-
-        case "this week":
-          const weekStart = new Date(now);
-          weekStart.setDate(
-            now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1)
-          ); // Monday as start of week
-          weekStart.setHours(0, 0, 0, 0);
-          const weekEnd = new Date(weekStart);
-          weekEnd.setDate(weekStart.getDate() + 6);
-          weekEnd.setHours(23, 59, 59, 999);
-          filter.createdAt.$gte = weekStart;
-          filter.createdAt.$lte = weekEnd;
-          break;
-
-        case "this month":
-          const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-          monthStart.setHours(0, 0, 0, 0);
-          const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-          monthEnd.setHours(23, 59, 59, 999);
-          filter.createdAt.$gte = monthStart;
-          filter.createdAt.$lte = monthEnd;
-          break;
-
-        case "custom range":
-          if (startDate || endDate) {
-            if (startDate) {
-              const start = new Date(startDate);
-              start.setHours(0, 0, 0, 0);
-              filter.createdAt.$gte = start;
-            }
-
-            if (endDate) {
-              const end = new Date(endDate);
-              end.setHours(23, 59, 59, 999);
-              filter.createdAt.$lte = end;
-            }
-          }
-          break;
-
-        default:
-          // If dateFilter is not recognized, we can fall back to startDate/endDate if provided
-          if (startDate || endDate) {
-            if (startDate) {
-              const start = new Date(startDate);
-              start.setHours(0, 0, 0, 0);
-              filter.createdAt.$gte = start;
-            }
-
-            if (endDate) {
-              const end = new Date(endDate);
-              end.setHours(23, 59, 59, 999);
-              filter.createdAt.$lte = end;
-            }
-          }
-          break;
-      }
-    } else if (startDate || endDate) {
-      // Fallback to existing startDate/endDate handling if dateFilter is not provided
-      filter.createdAt = {};
-
-      if (startDate) {
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-        filter.createdAt.$gte = start;
-      }
-
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        filter.createdAt.$lte = end;
-      }
-    }
-
-    const pageNumber = Math.max(1, parseInt(page, 10));
-    const limitNumber = Math.min(100, Math.max(1, parseInt(limit, 10))); // safe limits
-    const skip = (pageNumber - 1) * limitNumber;
-
+    // Fetch orders
     const orders = await Order.find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limitNumber)
+      .limit(limitNumber || undefined) // <-- IMPORTANT: undefined removes limit
       .lean();
 
+    // Collect product IDs
     const productIds = [
       ...new Set(orders.flatMap((order) => order.items.map((item) => item.id))),
     ];
@@ -176,15 +71,17 @@ const getAllOrders = async (req, res) => {
       })),
     }));
 
-    const totalItems = await Order.countDocuments(filter);
-    const totalPages = Math.ceil(totalItems / limitNumber);
+    let pagination = null;
 
-    const pagination = {
-      totalItems,
-      totalPages,
-      currentPage: pageNumber,
-      pageSize: limitNumber,
-    };
+    if (isPaginated) {
+      const totalItems = await Order.countDocuments(filter);
+      pagination = {
+        totalItems,
+        totalPages: Math.ceil(totalItems / limitNumber),
+        currentPage: pageNumber,
+        pageSize: limitNumber,
+      };
+    }
 
     return res
       .status(200)
@@ -496,6 +393,7 @@ const createOrder = async (req, res) => {
         payment?.status && validPaymentStatuses.includes(payment.status)
           ? payment.status
           : "partial",
+      transactionId: payment?.transactionId || null,
       currency: payment?.currency || "AU$",
     };
 
@@ -1169,7 +1067,6 @@ const updateOrder = async (req, res) => {
     }
 
     let currentPayments = [];
-
     if (Array.isArray(order.payment)) {
       currentPayments = order.payment;
     } else if (order.payment && typeof order.payment === "object") {
@@ -1180,7 +1077,7 @@ const updateOrder = async (req, res) => {
     const newPayment = {
       method,
       amount,
-      status, // respect what user sent
+      status,
       currency: "AU$",
       transactionId: "",
       note: note?.trim() || "",
@@ -1188,24 +1085,29 @@ const updateOrder = async (req, res) => {
     };
 
     const updatedPayments = [...currentPayments, newPayment];
+
     const totalPaid = updatedPayments.reduce(
       (sum, p) => sum + (p.amount || 0),
       0
     );
 
-    const isFullyPaid = totalPaid >= order.total;
+    const amountToMatch = order.subtotal;
+
+    const isFullyPaid = totalPaid >= amountToMatch;
     const finalOrderStatus = isFullyPaid ? "full" : "partial";
 
+    // Auto-correct status if this payment completes the full amount
     if (isFullyPaid && newPayment.status !== "full") {
-      newPayment.status = "full"; // auto-correct if this payment closes the order
+      newPayment.status = "full";
     }
 
+    // Update the order
     const updatedOrder = await Order.findByIdAndUpdate(
       orderId,
       {
         $set: {
           payment: updatedPayments,
-          totalPaid: totalPaid,
+          totalPaid: totalPaid, // optional field — good to have
           status: finalOrderStatus,
         },
       },
@@ -1219,9 +1121,12 @@ const updateOrder = async (req, res) => {
           order: updatedOrder,
           addedPayment: newPayment,
           totalPaid,
-          remainingBalance: Math.max(0, order.total - totalPaid),
+          remainingBalance: Math.max(0, amountToMatch - totalPaid),
+          fullyPaid: isFullyPaid,
         },
-        "Cash payment added successfully"
+        isFullyPaid
+          ? "Order fully paid with this payment"
+          : "Partial payment added successfully"
       )
     );
   } catch (error) {
@@ -1234,14 +1139,7 @@ const updateOrder = async (req, res) => {
 
 const createLocalOrder = async (req, res) => {
   try {
-    const {
-      items,
-      subtotal,
-      total,
-      customer,
-      payment,
-      appointment, // optional – can be partial or completely absent
-    } = req.body;
+    const { items, subtotal, total, customer, payment, appointment } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res
@@ -1259,16 +1157,24 @@ const createLocalOrder = async (req, res) => {
       }
     }
 
-    if (!customer || !customer.firstName || !customer.phone) {
+    if (
+      !customer ||
+      !customer.firstName ||
+      !customer.lastName ||
+      !customer.phone
+    ) {
       return res
         .status(400)
         .json(new ApiError(400, "Customer name and phone are required"));
     }
 
+    const fullName =
+      `${customer.firstName.trim()} ${customer.lastName.trim()}`.trim();
+
     const customerData = {
-      name: customer.name.trim(),
-      phone: customer.phone.trim(),
-      email: customer.email?.trim() || "",
+      name: fullName,
+      phone: customer.phone,
+      email: customer.email || "",
     };
 
     const validPaymentMethods = ["card", "cash", "online", "bank_transfer"];
