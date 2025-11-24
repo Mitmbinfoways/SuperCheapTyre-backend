@@ -258,7 +258,7 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
                   ">
                     <p style="margin: 0; color: #333; font-size: 14px;">
                       <strong>Payment Status:</strong> ${
-                        payment.status || "pending"
+                        payment.status || "partial"
                       } 
                       ${payment.method ? ` • Method: ${payment.method}` : ""}
                     </p>
@@ -676,42 +676,46 @@ const DownloadPDF = async (req, res) => {
     doc.opacity(1);
     doc.roundedRect(295, yPos, 260, 110, 8).lineWidth(1.5).stroke(borderColor);
 
-    doc
-      .fontSize(9)
-      .fillColor(textSecondary)
-      .font("Helvetica-Bold")
-      .text("APPOINTMENT DETAILS", 313, yPos + 15);
-    doc
-      .fontSize(13)
-      .fillColor(textPrimary)
-      .font("Helvetica-Bold")
-      .text(
-        `${order.appointment.firstName} ${order.appointment.lastName}`,
-        313,
-        yPos + 35
-      );
-    doc.fontSize(9).fillColor(textSecondary).font("Helvetica");
-    doc.text(order.appointment.phone, 313, yPos + 55);
-    doc.text(order.appointment.email, 313, yPos + 70);
+    // Conditionally display appointment details section only if both firstName and lastName exist and are non-empty
+    if (order.appointment.firstName && order.appointment.lastName && 
+        order.appointment.firstName.trim() !== "" && order.appointment.lastName.trim() !== "") {
+      doc
+        .fontSize(9)
+        .fillColor(textSecondary)
+        .font("Helvetica-Bold")
+        .text("APPOINTMENT DETAILS", 313, yPos + 15);
+      doc
+        .fontSize(13)
+        .fillColor(textPrimary)
+        .font("Helvetica-Bold")
+        .text(
+          `${order.appointment.firstName} ${order.appointment.lastName}`,
+          313,
+          yPos + 35
+        );
+      doc.fontSize(9).fillColor(textSecondary).font("Helvetica");
+      doc.text(order.appointment.phone, 313, yPos + 55);
+      doc.text(order.appointment.email, 313, yPos + 70);
 
-    doc.circle(318, yPos + 88, 3).fill(accentColor);
-    const formattedAppointmentDate = order.appointment.date
-      ? new Date(order.appointment.date).toLocaleDateString("en-US", {
-          weekday: "short",
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        })
-      : "N/A";
-    doc
-      .fontSize(9)
-      .fillColor(textPrimary)
-      .font("Helvetica-Bold")
-      .text(
-        `${formattedAppointmentDate} • ${order.appointment.time}`,
-        328,
-        yPos + 85
-      );
+      doc.circle(318, yPos + 88, 3).fill(accentColor);
+      const formattedAppointmentDate = order.appointment.date
+        ? new Date(order.appointment.date).toLocaleDateString("en-US", {
+            weekday: "short",
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          })
+        : "";
+      doc
+        .fontSize(9)
+        .fillColor(textPrimary)
+        .font("Helvetica-Bold")
+        .text(
+          `${formattedAppointmentDate} ${order.appointment.time}`,
+          328,
+          yPos + 85
+        );
+    }
 
     // ==================== ITEMS TABLE ====================
     const pageHeight = doc.page.height - 120; // Reserve space for footer
@@ -743,6 +747,34 @@ const DownloadPDF = async (req, res) => {
     renderTableHeader();
 
     let rowIndex = 0;
+    
+    // Calculate if we need to move summary box to second page
+    // Alternative approach: Pre-calculate space needed for items
+    let itemsEndYPos = yPos;
+    let itemsWillNeedNewPage = false;
+    let currentPageItemsCount = 0;
+    let itemsPerPageEstimate = Math.floor((pageHeight - yPos) / 35); // Estimate with minimum row height
+    
+    // If we have 4 or more items, or if items likely won't fit with summary box
+    if (order.items.length >= 4 || order.items.length > itemsPerPageEstimate) {
+      itemsWillNeedNewPage = true;
+    }
+
+    for (let i = 0; i < order.items.length; i++) {
+      const item = order.items[i];
+      const itemTotal = item.price * item.quantity;
+      const hasDetails = item.brand || item.sku;
+      const rowHeight = hasDetails ? 48 : 35;
+
+      if (itemsEndYPos + rowHeight > pageHeight) {
+        // This item will go to next page
+        itemsWillNeedNewPage = true;
+        itemsEndYPos = startYAfterHeader + tableTitleHeight + tableHeaderHeight;
+      }
+
+      itemsEndYPos += rowHeight;
+    }
+
     for (let i = 0; i < order.items.length; i++) {
       const item = order.items[i];
       const itemTotal = item.price * item.quantity;
@@ -819,13 +851,32 @@ const DownloadPDF = async (req, res) => {
     // ==================== PAYMENT INFO & SUMMARY SIDE BY SIDE ====================
     yPos += 25;
 
-    const isPaymentPending = order.payment?.status === "partial";
+    // Find the appropriate payment entry to display
+    let paymentToDisplay = null;
+    let isPaymentPending = false;
+    
+    if (order.payment && Array.isArray(order.payment) && order.payment.length > 0) {
+      // Check if any payment entry has status 'full'
+      const fullPayment = order.payment.find(p => p.status === 'full');
+      if (fullPayment) {
+        paymentToDisplay = fullPayment;
+      } else {
+        // If no 'full' payment, use the first payment entry
+        paymentToDisplay = order.payment[0];
+      }
+      
+      // Check if any payment entry has status 'partial'
+      isPaymentPending = order.payment.some(p => p.status === 'partial');
+    }
+
     const leftBoxHeight = 85;
     const rightBoxHeight = isPaymentPending ? 145 : 100;
     const maxBoxHeight = Math.max(leftBoxHeight, rightBoxHeight);
     const summaryAndFooterHeight = maxBoxHeight + 150;
 
-    if (yPos + summaryAndFooterHeight > pageHeight) {
+    // Alternative approach: Move summary box to second page if there are 4 or more products
+    // or if items table likely forced a new page
+    if (order.items.length >= 4 || itemsWillNeedNewPage || yPos + summaryAndFooterHeight > pageHeight) {
       renderFooter(); // Add footer before new page
       doc.addPage();
       yPos = startYAfterHeader;
@@ -833,7 +884,7 @@ const DownloadPDF = async (req, res) => {
     }
 
     // Left side - Payment Information
-    if (order.payment) {
+    if (paymentToDisplay) {
       const leftBoxX = 40;
       const leftBoxWidth = 250;
 
@@ -858,10 +909,12 @@ const DownloadPDF = async (req, res) => {
         .text("Payment Status:", leftBoxX + 18, paymentBoxY + 18);
 
       const paymentStatusColor =
-        order.payment.status === "completed"
+        paymentToDisplay.status === "completed"
           ? successColor
-          : order.payment.status === "pending"
+          : paymentToDisplay.status === "partial"
           ? warningColor
+          : paymentToDisplay.status === "full"
+          ? successColor
           : dangerColor;
 
       doc
@@ -869,23 +922,57 @@ const DownloadPDF = async (req, res) => {
         .fillColor(paymentStatusColor)
         .font("Helvetica-Bold")
         .text(
-          order?.payment?.status?.toUpperCase(),
+          paymentToDisplay?.status?.toUpperCase() || 'N/A',
           leftBoxX + 18,
           paymentBoxY + 36
         );
 
-      if (order.payment.transactionId) {
+      if (paymentToDisplay.transactionId) {
         doc
           .fontSize(8)
           .fillColor(textSecondary)
           .font("Helvetica")
           .text(
-            `Transaction ID: ${order.payment.transactionId}`,
+            `Transaction ID: ${paymentToDisplay.transactionId}`,
             leftBoxX + 18,
             paymentBoxY + 58,
             { width: leftBoxWidth - 36 }
           );
       }
+    } else if (order.payment) {
+      // Handle case where payment exists but is empty array or invalid
+      const leftBoxX = 40;
+      const leftBoxWidth = 250;
+
+      doc
+        .fontSize(12)
+        .fillColor(textPrimary)
+        .font("Helvetica-Bold")
+        .text("Payment Information", leftBoxX, yPos);
+
+      const paymentBoxY = yPos + 22;
+      doc
+        .roundedRect(leftBoxX, paymentBoxY, leftBoxWidth, leftBoxHeight, 8)
+        .lineWidth(1.5)
+        .strokeColor(borderColor)
+        .fillColor(bgLight)
+        .fillAndStroke();
+
+      doc
+        .fontSize(9)
+        .fillColor(textSecondary)
+        .font("Helvetica")
+        .text("Payment Status:", leftBoxX + 18, paymentBoxY + 18);
+
+      doc
+        .fontSize(10)
+        .fillColor(dangerColor)
+        .font("Helvetica-Bold")
+        .text(
+          'N/A',
+          leftBoxX + 18,
+          paymentBoxY + 36
+        );
     }
 
     // Right side - Summary Box
@@ -940,7 +1027,11 @@ const DownloadPDF = async (req, res) => {
     }
 
     if (isPaymentPending) {
-      const paidAmount = order.subtotal * 0.25;
+      // Calculate the actual paid amount by summing all payments in the array
+      let paidAmount = 0;
+      if (order.payment && Array.isArray(order.payment)) {
+        paidAmount = order.payment.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+      }
       const unpaidAmount = order.subtotal - paidAmount;
 
       summaryYPos += 22;
@@ -948,7 +1039,7 @@ const DownloadPDF = async (req, res) => {
         .fontSize(10)
         .fillColor(textSecondary)
         .font("Helvetica")
-        .text("Paid Amount (25%):", summaryBoxX + 20, summaryYPos);
+        .text("Paid Amount :", summaryBoxX + 20, summaryYPos);
       doc
         .fillColor(textPrimary)
         .font("Helvetica-Bold")
@@ -1109,6 +1200,7 @@ const updateOrder = async (req, res) => {
           payment: updatedPayments,
           totalPaid: totalPaid, // optional field — good to have
           status: finalOrderStatus,
+          total: totalPaid, // Update the order's total field based on sum of payments
         },
       },
       { new: true, runValidators: true }
@@ -1178,7 +1270,7 @@ const createLocalOrder = async (req, res) => {
     };
 
     const validPaymentMethods = ["card", "cash", "online", "bank_transfer"];
-    const validPaymentStatuses = ["pending", "partial", "full", "failed"];
+    const validPaymentStatuses = ["partial", "full",];
 
     const paymentData = {
       amount: typeof payment?.amount === "number" ? payment.amount : total || 0,
@@ -1189,7 +1281,7 @@ const createLocalOrder = async (req, res) => {
       status:
         payment?.status && validPaymentStatuses.includes(payment.status)
           ? payment.status
-          : "pending",
+          : "partial",
       currency: payment?.currency || "AU$",
       transactionId: payment?.transactionId || "",
       providerPayload: payment?.providerPayload || null,
