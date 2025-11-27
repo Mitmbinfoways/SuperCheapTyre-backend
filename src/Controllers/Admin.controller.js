@@ -101,7 +101,7 @@ const RequestReset = async (req, res) => {
     }
 
     const resetToken = jwt.sign({ id: admin._id }, JWT_SECRET, {
-      expiresIn: "1m",
+      expiresIn: "1h",
     });
 
     const resetLink = `${process.env.ADMIN_URL}/reset-password?token=${resetToken}`;
