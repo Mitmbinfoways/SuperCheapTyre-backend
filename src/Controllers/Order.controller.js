@@ -1431,10 +1431,70 @@ const createLocalOrder = async (req, res) => {
   }
 };
 
+const getOrderById = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    if (!mongoose.isValidObjectId(orderId)) {
+      return res.status(400).json(new ApiError(400, "Invalid Order ID"));
+    }
+
+    // Fetch the order by ID
+    const order = await Order.findById(orderId).lean();
+
+    if (!order) {
+      return res.status(404).json(new ApiError(404, "Order not found"));
+    }
+
+    // Collect product IDs from order items
+    const productIds = order.items.map((item) => item.id);
+
+    // Fetch product details
+    const products =
+      productIds.length > 0
+        ? await Product.find({ _id: { $in: productIds } })
+            .select("name price images sku")
+            .lean()
+        : [];
+
+    const productMap = Object.fromEntries(
+      products.map((p) => [p._id.toString(), p])
+    );
+
+    // Enrich order items with product details
+    const enrichedOrder = {
+      ...order,
+      items: order.items.map((item) => ({
+        ...item,
+        productDetails: productMap[item.id] || {
+          name: "Product Not Found",
+          price: item.price,
+          images: [item.image || ""],
+          sku: item.sku || "N/A",
+        },
+      })),
+    };
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          { order: enrichedOrder },
+          "Order fetched successfully"
+        )
+      );
+  } catch (error) {
+    console.error("Error fetching order:", error);
+    return res.status(500).json(new ApiError(500, "Failed to fetch order"));
+  }
+};
+
 module.exports = {
   createOrder,
   getAllOrders,
   DownloadPDF,
   updateOrder,
   createLocalOrder,
+  getOrderById,
 };
