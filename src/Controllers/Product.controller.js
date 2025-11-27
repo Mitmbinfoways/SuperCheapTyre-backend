@@ -1,4 +1,3 @@
-const mongoose = require("mongoose");
 const ApiResponse = require("../Utils/ApiResponse");
 const ApiError = require("../Utils/ApiError");
 const Product = require("../Models/Product.model");
@@ -167,6 +166,7 @@ const CreateProduct = async (req, res) => {
       images = [],
       sku,
       price,
+      pricetext,
       stock,
       tyreSpecifications = {},
       wheelSpecifications = {},
@@ -254,6 +254,7 @@ const CreateProduct = async (req, res) => {
       name: name.trim(),
       category,
       brand: brand.trim(),
+      pricetext,
       description,
       images: finalImages,
       sku: sku.trim(),
@@ -347,6 +348,7 @@ const UpdateProduct = async (req, res) => {
       description,
       images,
       price,
+      pricetext,      
       stock,
       tyreSpecifications,
       wheelSpecifications,
@@ -356,6 +358,7 @@ const UpdateProduct = async (req, res) => {
     } = req.body;
 
     if (typeof name !== "undefined") existing.name = name;
+    if (typeof pricetext !== "undefined") existing.pricetext = pricetext;
     if (typeof category !== "undefined") existing.category = category;
     if (typeof brand !== "undefined") existing.brand = brand;
     if (typeof description !== "undefined") existing.description = description;

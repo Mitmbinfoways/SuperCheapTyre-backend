@@ -305,7 +305,7 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
 
 const generateAdminAppointmentEmail = (appointment, slotInfo) => {
   return `
-    <h2>New Appointment Order Created</h2>
+    <h2>New Appointment Created</h2>
 
     <p><strong>Name:</strong> ${appointment.firstname} ${
     appointment.lastname
@@ -497,7 +497,7 @@ const createOrder = async (req, res) => {
         customerHTML
       );
       await sendMail(
-        process.env.ADMIN_EMAIL,
+        process.env.SMTP_USER,
         "New Appointment Created",
         adminHTML
       );
