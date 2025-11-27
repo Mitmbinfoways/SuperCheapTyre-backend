@@ -6,7 +6,8 @@ const {
   createBanner,
   updateBanner,
   deleteBanner,
-  uploadBannerImages
+  uploadBannerImages,
+  updateBannerSequence
 } = require("../Controllers/Banner.controller");
 
 
@@ -21,5 +22,6 @@ BannerRoute.patch("/:id", uploadBannerImages.fields([
   { name: 'mobileImage', maxCount: 1 }
 ]), updateBanner);
 BannerRoute.delete("/:id", deleteBanner);
+BannerRoute.put("/sequence", updateBannerSequence);
 
 module.exports = BannerRoute;

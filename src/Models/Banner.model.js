@@ -6,6 +6,7 @@ const bannerSchema = new mongoose.Schema(
     mobileImage: { type: String, required: true },
     isActive: { type: Boolean, default: true },
     isDelete: { type: Boolean, default: false },
+    sequence: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

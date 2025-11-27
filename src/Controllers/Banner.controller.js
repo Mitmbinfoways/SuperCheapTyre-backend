@@ -35,7 +35,7 @@ const getAllBanners = async (req, res) => {
       filter.isActive = isActive === "true";
     }
 
-    const banners = await Banner.find(filter).sort({ createdAt: -1 });
+    const banners = await Banner.find(filter).sort({ sequence: 1, createdAt: -1 });
 
     return res
       .status(200)
@@ -81,6 +81,7 @@ const createBanner = async (req, res) => {
       laptopImage: `/Banners/${laptopImageFile.filename}`,
       mobileImage: `/Banners/${mobileImageFile.filename}`,
       isActive: isActive === "true" || isActive === true || true, // Default to active if not specified
+      sequence: (await Banner.countDocuments()) + 1,
     });
 
     return res
@@ -247,7 +248,29 @@ const deleteBanner = async (req, res) => {
       .status(200)
       .json(new ApiResponse(200, banner, "Banner deleted successfully"));
   } catch (error) {
-    console.error("deleteBanner Error:", error);
+    return res.status(500).json(new ApiError(500, "Internal Server Error"));
+  }
+};
+
+const updateBannerSequence = async (req, res) => {
+  try {
+    const { banners } = req.body;
+
+    if (!banners || !Array.isArray(banners)) {
+      return res.status(400).json(new ApiError(400, "Invalid data format"));
+    }
+
+    const updatePromises = banners.map((banner, index) => {
+      return Banner.findByIdAndUpdate(banner._id, { sequence: index + 1 });
+    });
+
+    await Promise.all(updatePromises);
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, {}, "Banner sequence updated successfully"));
+  } catch (error) {
+    console.error("updateBannerSequence Error:", error);
     return res.status(500).json(new ApiError(500, "Internal Server Error"));
   }
 };
@@ -258,5 +281,6 @@ module.exports = {
   createBanner,
   updateBanner,
   deleteBanner,
+  updateBannerSequence,
   uploadBannerImages,
 };
