@@ -303,6 +303,24 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
   `;
 };
 
+const generateAdminAppointmentEmail = (appointment, slotInfo) => {
+  return `
+    <h2>New Appointment Order Created</h2>
+
+    <p><strong>Name:</strong> ${appointment.firstname} ${
+    appointment.lastname
+  }</p>
+    <p><strong>Phone:</strong> ${appointment.phone}</p>
+    <p><strong>Email:</strong> ${appointment.email}</p>
+
+    <p><strong>Date:</strong> ${appointment.date}</p>
+    <p><strong>Time Slot:</strong> ${
+      slotInfo ? `${slotInfo.startTime} - ${slotInfo.endTime}` : "N/A"
+    }</p>
+
+  `;
+};
+
 const createOrder = async (req, res) => {
   try {
     const { items, subtotal, total, appointmentId, customer, payment } =
@@ -469,17 +487,22 @@ const createOrder = async (req, res) => {
       payment: paymentData,
     });
 
-    // Send confirmation email
     try {
-      const emailHTML = generateOrderConfirmationEmail(order);
+      const customerHTML = generateOrderConfirmationEmail(order);
+      const adminHTML = generateAdminAppointmentEmail(appointment, slotInfo);
+
       await sendMail(
         appointment.email,
         "Order Confirmation - Your Appointment is Confirmed!",
-        emailHTML
+        customerHTML
       );
-      console.log(`Confirmation email sent to ${appointment.email}`);
+      await sendMail(
+        process.env.ADMIN_EMAIL,
+        "New Appointment Created",
+        adminHTML
+      );
     } catch (emailError) {
-      console.error("Failed to send confirmation email:", emailError);
+      console.error("Email Error:", emailError);
     }
 
     return res
