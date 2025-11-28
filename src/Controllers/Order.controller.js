@@ -642,8 +642,13 @@ const DownloadPDF = async (req, res) => {
         .font("Helvetica-Bold")
         .text("INVOICE", 320, 15, { align: "right", width: 230 });
       doc.fontSize(9).fillColor("#cbd5e1").font("Helvetica");
+      const dateObj = new Date(order.createdAt);
+      const dateStr = dateObj.toISOString().slice(0, 10).replace(/-/g, ""); // YYYYMMDD
+      const idSuffix = order._id?.toString()?.slice(-6)?.toUpperCase();
+      const invoiceNum = `INV-${dateStr}-${idSuffix}`;
+
       doc.text(
-        `Invoice #: INV-${order._id?.toString()?.slice(-8)?.toUpperCase()}`,
+        `Invoice #: ${invoiceNum}`,
         320,
         52,
         { align: "right", width: 230 }
@@ -992,12 +997,17 @@ const DownloadPDF = async (req, res) => {
               ? successColor
               : dangerColor;
 
+      let statusText = paymentToDisplay?.status?.toUpperCase() || "N/A";
+      if (statusText === "PARTIAL" || statusText === "FULL") {
+        statusText += " PAID";
+      }
+
       doc
         .fontSize(10)
         .fillColor(paymentStatusColor)
         .font("Helvetica-Bold")
         .text(
-          paymentToDisplay?.status?.toUpperCase() || "N/A",
+          statusText,
           leftBoxX + 18,
           paymentBoxY + 36
         );
