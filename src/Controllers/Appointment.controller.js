@@ -112,6 +112,54 @@ const getAllAppointments = async (req, res) => {
   }
 };
 
+const getAppointmentById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const appointment = await Appointment.findById(id).lean();
+
+    if (!appointment) {
+      return res.status(404).json(new ApiError(404, "Appointment not found"));
+    }
+
+    // Populate details
+    const technician = appointment.Employee
+      ? await Technician.findById(appointment.Employee).select(
+          "firstName lastName email phone isActive"
+        )
+      : null;
+
+    const timeSlot = appointment.timeSlotId
+      ? await TimeSlot.findById(appointment.timeSlotId).lean()
+      : null;
+
+    let slotDetails = null;
+    if (timeSlot && timeSlot.generatedSlots?.length > 0) {
+      slotDetails = timeSlot.generatedSlots.find(
+        (s) => s.slotId === appointment.slotId
+      );
+    }
+
+    const data = {
+      ...appointment,
+      technicianDetails: technician || null,
+      slotDetails: slotDetails
+        ? {
+            startTime: slotDetails.startTime,
+            endTime: slotDetails.endTime,
+            isBreak: slotDetails.isBreak,
+          }
+        : null,
+    };
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, data, "Appointment fetched successfully"));
+  } catch (error) {
+    console.error("Error fetching appointment:", error);
+    return res.status(500).json(new ApiError(500, "Internal Server Error"));
+  }
+};
+
 // GET /appointments/slots?date=YYYY-MM-DD&timeSlotId=ID
 const getAvailableSlots = async (req, res) => {
   try {
@@ -345,7 +393,7 @@ const updateAppointment = async (req, res) => {
       }
 
       const validSlot = timeSlotConfig.generatedSlots.find(
-        (slot) => String(slot._id) === String(slotId)
+        (slot) => slot.slotId === slotId
       );
 
       if (!validSlot || validSlot.isBreak) {
@@ -358,7 +406,7 @@ const updateAppointment = async (req, res) => {
       const already = await Appointment.findOne({
         _id: { $ne: id }, // exclude current appointment
         date: appointmentDate,
-        slotId: validSlot._id,
+        slotId: validSlot.slotId,
         status: { $in: ["reserved", "confirmed"] },
       });
 
@@ -368,7 +416,7 @@ const updateAppointment = async (req, res) => {
           .json(new ApiError(400, "This slot is already booked"));
       }
 
-      updatedSlotId = validSlot._id;
+      updatedSlotId = validSlot.slotId;
       updatedTimeSlotId = timeSlotConfig._id;
     }
 
@@ -397,6 +445,7 @@ const updateAppointment = async (req, res) => {
 
 module.exports = {
   getAllAppointments,
+  getAppointmentById,
   getAvailableSlots,
   createAppointment,
   updateAppointment,
