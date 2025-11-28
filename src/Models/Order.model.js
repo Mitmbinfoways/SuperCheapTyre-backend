@@ -40,13 +40,25 @@ const appointmentSchema = new mongoose.Schema({
   timeSlotId: { type: String },
 });
 
+const orderServiceSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true },
+    quantity: { type: Number, default: 1 },
+    name: { type: String, },
+    description: { type: String, default: "" },
+    price: { type: Number, required: true },
+    image: { type: String, default: "" },
+  },
+);
+
 const orderSchema = new mongoose.Schema(
   {
-    items: { type: [orderItemSchema], required: true },
-    subtotal: { type: Number, required: true },
-    total: { type: Number, required: true },
-    appointment: { type: appointmentSchema, required: true },
-    customer: { type: customerSchema, required: true },
+    items: { type: [orderItemSchema] },
+    serviceItems: { type: [orderServiceSchema] },
+    subtotal: { type: Number },
+    total: { type: Number },
+    appointment: { type: appointmentSchema },
+    customer: { type: customerSchema },
     payment: { type: [paymentSchema] },
   },
   { timestamps: true }

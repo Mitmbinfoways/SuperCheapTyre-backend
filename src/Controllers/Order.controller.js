@@ -4,6 +4,7 @@ const PDFDocument = require("pdfkit");
 const Product = require("../Models/Product.model");
 const Appointment = require("../Models/Appointment.model");
 const TimeSlot = require("../Models/TimeSlot.model");
+const Service = require("../Models/Service.model");
 const ApiResponse = require("../Utils/ApiResponse");
 const ApiError = require("../Utils/ApiError");
 const sendMail = require("../Utils/Nodemailer");
@@ -313,13 +314,16 @@ const generateAdminAppointmentEmail = (appointment, slotInfo) => {
 
 const createOrder = async (req, res) => {
   try {
-    const { items, subtotal, total, appointmentId, customer, payment } =
+    const { items: reqItems, serviceItems: reqServiceItems, subtotal, total, appointmentId, customer, payment } =
       req.body;
 
-    if (!items || !Array.isArray(items) || !items.length) {
+    const items = Array.isArray(reqItems) ? reqItems : [];
+    const serviceItems = Array.isArray(reqServiceItems) ? reqServiceItems : [];
+
+    if (items.length === 0 && serviceItems.length === 0) {
       return res
         .status(400)
-        .json(new ApiError(400, "Order items are required"));
+        .json(new ApiError(400, "Order must contain at least one item or service item"));
     }
 
     for (const item of items) {
@@ -328,6 +332,16 @@ const createOrder = async (req, res) => {
           .status(400)
           .json(
             new ApiError(400, "Each item must have a valid id and quantity")
+          );
+      }
+    }
+
+    for (const item of serviceItems) {
+      if (!item.id || typeof item.quantity !== "number" || item.quantity <= 0) {
+        return res
+          .status(400)
+          .json(
+            new ApiError(400, "Each service item must have a valid id and quantity")
           );
       }
     }
@@ -458,8 +472,33 @@ const createOrder = async (req, res) => {
       };
     });
 
+    const serviceIds = serviceItems.map((item) => item.id);
+    const services = await Service.find({
+      _id: { $in: serviceIds },
+    }).lean();
+
+    if (services.length !== serviceItems.length) {
+      return res
+        .status(400)
+        .json(new ApiError(400, "One or more services not found or inactive"));
+    }
+
+    const enrichedServiceItems = serviceItems.map((item) => {
+      const service = services.find((s) => s._id.toString() === item.id);
+      return {
+        id: item.id,
+        quantity: item.quantity,
+        name: service.name,
+        description: service.description || "",
+        price: service.price,
+        image:
+          service.images && service.images.length > 0 ? service.images[0] : "",
+      };
+    });
+
     const order = await Order.create({
       items: enrichedItems,
+      serviceItems: enrichedServiceItems,
       subtotal,
       total,
       appointment: {
