@@ -50,8 +50,8 @@ const getAllOrders = async (req, res) => {
     const products =
       productIds.length > 0
         ? await Product.find({ _id: { $in: productIds } })
-            .select("name price images sku")
-            .lean()
+          .select("name price images sku")
+          .lean()
         : [];
 
     const productMap = Object.fromEntries(
@@ -127,8 +127,8 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
                 ${product.brand || "Unknown Brand"} | ${product.sku || "N/A"}
               </span><br>
               <span style="color: #4CAF50; font-weight: bold;">AU$${price.toFixed(
-                2
-              )}</span>
+        2
+      )}</span>
             </div>
           </td>
           <td style="padding: 12px; border-bottom: 1px solid #e0e0e0; text-align: center;">
@@ -182,9 +182,8 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
               <tr>
                 <td style="padding: 30px;">
                   <p style="font-size: 16px; color: #333333; margin: 0 0 20px;">
-                    Hi <strong>${
-                      appointment.firstName || customer.name || "Customer"
-                    } ${appointment.lastName || ""}</strong>,
+                    Hi <strong>${appointment.firstName || customer.name || "Customer"
+    } ${appointment.lastName || ""}</strong>,
                   </p>
                   <p style="font-size: 16px; color: #333333; margin: 0;">
                     Thank you for your order! We've received it and are preparing for your appointment.
@@ -193,37 +192,33 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
               </tr>
 
               <!-- Appointment Details -->
-              ${
-                appointment?.date || appointment?.time || "-"
-                  ? `
+              ${appointment?.date || appointment?.time || "-"
+      ? `
               <tr>
                 <td style="padding: 0 30px 30px;">
                   <h2 style="color: #333333; font-size: 20px; margin-bottom: 15px; border-bottom: 2px solid #4CAF50; padding-bottom: 10px;">
                     Appointment Details
                   </h2>
                   <table width="100%" cellpadding="8" cellspacing="0">
-                    ${
-                      appointment.date
-                        ? `<tr><td style="color:#666;font-size:14px;width:40%;"><strong>Date:</strong></td><td>${formatDate(
-                            appointment.date || "-"
-                          )}</td></tr>`
-                        : "-"
-                    }
-                    ${
-                      appointment.time
-                        ? `<tr><td style="color:#666;font-size:14px;"><strong>Time:</strong></td><td>${appointment.time}</td></tr>`
-                        : "-"
-                    }
-                    ${
-                      appointment.phone
-                        ? `<tr><td style="color:#666;font-size:14px;"><strong>Phone:</strong></td><td>${appointment.phone}</td></tr>`
-                        : "-"
-                    }
+                    ${appointment.date
+        ? `<tr><td style="color:#666;font-size:14px;width:40%;"><strong>Date:</strong></td><td>${formatDate(
+          appointment.date || "-"
+        )}</td></tr>`
+        : "-"
+      }
+                    ${appointment.time
+        ? `<tr><td style="color:#666;font-size:14px;"><strong>Time:</strong></td><td>${appointment.time}</td></tr>`
+        : "-"
+      }
+                    ${appointment.phone
+        ? `<tr><td style="color:#666;font-size:14px;"><strong>Phone:</strong></td><td>${appointment.phone}</td></tr>`
+        : "-"
+      }
                   </table>
                 </td>
               </tr>`
-                  : ""
-              }
+      : ""
+    }
 
               <!-- Order Items -->
               <tr>
@@ -247,19 +242,16 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
                <tr>
                 <td style="padding: 0 30px 30px;">
                   <div style="
-                    background-color: ${
-                      payment.status === "completed" ? "#e8f5e9" : "#fff3e0"
-                    };
+                    background-color: ${payment.status === "completed" ? "#e8f5e9" : "#fff3e0"
+    };
                     padding: 15px;
                     border-radius: 4px;
-                    border-left: 4px solid ${
-                      payment.status === "completed" ? "#4CAF50" : "#FF9800"
-                    };
+                    border-left: 4px solid ${payment.status === "completed" ? "#4CAF50" : "#FF9800"
+    };
                   ">
                     <p style="margin: 0; color: #333; font-size: 14px;">
-                      <strong>Payment Status:</strong> ${
-                        payment.status || "partial"
-                      } 
+                      <strong>Payment Status:</strong> ${payment.status || "partial"
+    } 
                       ${payment.method ? ` • Method: ${payment.method}` : ""}
                     </p>
                   </div>
@@ -307,15 +299,13 @@ const generateAdminAppointmentEmail = (appointment, slotInfo) => {
   return `
     <h2>New Appointment Created</h2>
 
-    <p><strong>Name:</strong> ${appointment.firstname} ${
-    appointment.lastname
-  }</p>
+    <p><strong>Name:</strong> ${appointment.firstname} ${appointment.lastname
+    }</p>
     <p><strong>Phone:</strong> ${appointment.phone}</p>
     <p><strong>Email:</strong> ${appointment.email}</p>
 
     <p><strong>Date:</strong> ${appointment.date}</p>
-    <p><strong>Time Slot:</strong> ${
-      slotInfo ? `${slotInfo.startTime} - ${slotInfo.endTime}` : "N/A"
+    <p><strong>Time Slot:</strong> ${slotInfo ? `${slotInfo.startTime} - ${slotInfo.endTime}` : "N/A"
     }</p>
 
   `;
@@ -399,7 +389,7 @@ const createOrder = async (req, res) => {
       email: customer.email || "",
     };
 
-    const validPaymentMethods = ["card", "cash", "online"];
+    const validPaymentMethods = ["card", "cash", "online", "eftpos", "afterpay"];
     const validPaymentStatuses = ["partial", "full", "failed"];
     const paymentData = {
       amount: typeof payment?.amount === "number" ? payment.amount : 0,
@@ -728,11 +718,11 @@ const DownloadPDF = async (req, res) => {
       doc.circle(318, yPos + 88, 3).fill(accentColor);
       const formattedAppointmentDate = order.appointment.date
         ? new Date(order.appointment.date).toLocaleDateString("en-US", {
-            weekday: "short",
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-          })
+          weekday: "short",
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        })
         : "";
       doc
         .fontSize(9)
@@ -883,18 +873,28 @@ const DownloadPDF = async (req, res) => {
     let paymentToDisplay = null;
     let isPaymentPending = false;
 
+    const { paymentId } = req.query;
+
     if (
       order.payment &&
       Array.isArray(order.payment) &&
       order.payment.length > 0
     ) {
-      // Check if any payment entry has status 'full'
-      const fullPayment = order.payment.find((p) => p.status === "full");
-      if (fullPayment) {
-        paymentToDisplay = fullPayment;
-      } else {
-        // If no 'full' payment, use the first payment entry
-        paymentToDisplay = order.payment[0];
+      if (paymentId) {
+        paymentToDisplay = order.payment.find(
+          (p) => p._id?.toString() === paymentId || p.id === paymentId
+        );
+      }
+
+      if (!paymentToDisplay) {
+        // Check if any payment entry has status 'full'
+        const fullPayment = order.payment.find((p) => p.status === "full");
+        if (fullPayment) {
+          paymentToDisplay = fullPayment;
+        } else {
+          // If no 'full' payment, use the first payment entry
+          paymentToDisplay = order.payment[0];
+        }
       }
 
       // Check if any payment entry has status 'partial'
@@ -948,10 +948,10 @@ const DownloadPDF = async (req, res) => {
         paymentToDisplay.status === "completed"
           ? successColor
           : paymentToDisplay.status === "partial"
-          ? warningColor
-          : paymentToDisplay.status === "full"
-          ? successColor
-          : dangerColor;
+            ? warningColor
+            : paymentToDisplay.status === "full"
+              ? successColor
+              : dangerColor;
 
       doc
         .fontSize(10)
@@ -1011,24 +1011,88 @@ const DownloadPDF = async (req, res) => {
     const summaryBoxX = 305;
     const summaryBoxWidth = 250;
 
+    // Calculate dynamic height based on fields to show
+    let summaryBoxHeight = 100; // Base height for Subtotal + Total
+
+    // Logic to determine payment amounts
+    let previousPaidAmount = 0;
+    let currentPaidAmount = 0;
+    let totalPaidSoFar = 0;
+    let isFirstPayment = true;
+
+    if (order.payment && Array.isArray(order.payment)) {
+      if (paymentToDisplay) {
+        // Find index of current payment
+        const currentIndex = order.payment.findIndex(
+          (p) =>
+            (p._id && p._id.toString() === paymentToDisplay._id?.toString()) ||
+            (p.id && p.id === paymentToDisplay.id)
+        );
+
+        if (currentIndex !== -1) {
+          // Calculate previous paid amount (sum of payments before this one)
+          previousPaidAmount = order.payment
+            .slice(0, currentIndex)
+            .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+          currentPaidAmount = paymentToDisplay.amount || 0;
+          totalPaidSoFar = previousPaidAmount + currentPaidAmount;
+          isFirstPayment = currentIndex === 0;
+        } else {
+          // Fallback if payment not found in list (shouldn't happen)
+          currentPaidAmount = paymentToDisplay.amount || 0;
+          totalPaidSoFar = currentPaidAmount;
+        }
+      } else {
+        // No specific payment displayed, assume total
+        totalPaidSoFar = order.payment.reduce((sum, p) => sum + (p.amount || 0), 0);
+        currentPaidAmount = totalPaidSoFar;
+      }
+    } else if (order.payment && typeof order.payment === 'object') {
+      // Legacy single payment object
+      currentPaidAmount = order.payment.amount || 0;
+      totalPaidSoFar = currentPaidAmount;
+    }
+
+    const unpaidAmount = Math.max(0, order.subtotal - totalPaidSoFar);
+
+
+    // Determine fields to show
+    // Always show Subtotal
+    // If first payment: Paid Amount, Unpaid Amount
+    // If subsequent payment: Previous Paid Amount, Paid Amount, Unpaid Amount
+    // Always show Total
+
+    if (isFirstPayment) {
+      summaryBoxHeight += 44; // Paid Amount + Unpaid Amount
+    } else {
+      summaryBoxHeight += 66; // Previous Paid + Paid Amount + Unpaid Amount
+    }
+
+    if (order.tax) summaryBoxHeight += 22;
+
+    // Adjust rightBoxHeight to fit content
+    const finalRightBoxHeight = Math.max(rightBoxHeight, summaryBoxHeight + 20);
+
     doc.opacity(0.08);
     doc
       .roundedRect(
         summaryBoxX + 3,
         yPos + 3,
         summaryBoxWidth,
-        rightBoxHeight,
+        finalRightBoxHeight,
         8
       )
       .fill("#000000");
     doc.opacity(1);
     doc
-      .roundedRect(summaryBoxX, yPos, summaryBoxWidth, rightBoxHeight, 8)
+      .roundedRect(summaryBoxX, yPos, summaryBoxWidth, finalRightBoxHeight, 8)
       .fillColor("#ffffff")
       .fillAndStroke();
 
     let summaryYPos = yPos + 18;
 
+    // 1. Subtotal
     doc
       .fontSize(10)
       .fillColor(textSecondary)
@@ -1058,27 +1122,63 @@ const DownloadPDF = async (req, res) => {
         });
     }
 
-    if (isPaymentPending) {
-      // Calculate the actual paid amount by summing all payments in the array
-      let paidAmount = 0;
-      if (order.payment && Array.isArray(order.payment)) {
-        paidAmount = order.payment.reduce(
-          (sum, payment) => sum + (payment.amount || 0),
-          0
-        );
-      }
-      const unpaidAmount = order.subtotal - paidAmount;
+    // 2. Payment Fields
+    if (isFirstPayment) {
+      // First Payment Logic
+      summaryYPos += 22;
+      doc
+        .fontSize(10)
+        .fillColor(textSecondary)
+        .font("Helvetica")
+        .text("Paid Amount:", summaryBoxX + 20, summaryYPos);
+      doc
+        .fillColor(textPrimary)
+        .font("Helvetica-Bold")
+        .text(`$${currentPaidAmount.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
+          width: summaryBoxWidth - 40,
+          align: "right",
+        });
 
       summaryYPos += 22;
       doc
         .fontSize(10)
         .fillColor(textSecondary)
         .font("Helvetica")
-        .text("Paid Amount :", summaryBoxX + 20, summaryYPos);
+        .text("Unpaid Amount:", summaryBoxX + 20, summaryYPos);
       doc
         .fillColor(textPrimary)
         .font("Helvetica-Bold")
-        .text(`$${paidAmount.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
+        .text(`$${unpaidAmount.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
+          width: summaryBoxWidth - 40,
+          align: "right",
+        });
+
+    } else {
+      // Subsequent Payment Logic
+      summaryYPos += 22;
+      doc
+        .fontSize(10)
+        .fillColor(textSecondary)
+        .font("Helvetica")
+        .text("Previous Paid Amount:", summaryBoxX + 20, summaryYPos);
+      doc
+        .fillColor(textPrimary)
+        .font("Helvetica-Bold")
+        .text(`$${previousPaidAmount.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
+          width: summaryBoxWidth - 40,
+          align: "right",
+        });
+
+      summaryYPos += 22;
+      doc
+        .fontSize(10)
+        .fillColor(textSecondary)
+        .font("Helvetica")
+        .text("Paid Amount:", summaryBoxX + 20, summaryYPos);
+      doc
+        .fillColor(textPrimary)
+        .font("Helvetica-Bold")
+        .text(`$${currentPaidAmount.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
           width: summaryBoxWidth - 40,
           align: "right",
         });
@@ -1098,6 +1198,7 @@ const DownloadPDF = async (req, res) => {
         });
     }
 
+    // 3. Total
     summaryYPos += 24;
     doc
       .strokeColor(borderColor)
@@ -1119,18 +1220,25 @@ const DownloadPDF = async (req, res) => {
       .fill(accentColor);
     doc.opacity(1);
 
+    let totalLabel = "TOTAL:";
+    // Always show the Total Paid So Far as the "TOTAL" at the bottom of the receipt
+    let totalValue = totalPaidSoFar;
+
     doc
       .fontSize(12)
       .fillColor(textPrimary)
       .font("Helvetica-Bold")
-      .text("TOTAL:", summaryBoxX + 24, summaryYPos + 1);
+      .text(totalLabel, summaryBoxX + 24, summaryYPos + 1);
+
     doc
       .fontSize(16)
       .fillColor(accentColor)
-      .text(`$${order.total.toFixed(2)}`, summaryBoxX + 24, summaryYPos, {
+      .text(`$${totalValue.toFixed(2)}`, summaryBoxX + 24, summaryYPos, {
         width: summaryBoxWidth - 48,
         align: "right",
       });
+
+
 
     // ==================== ADD FOOTER & PAGE NUMBERS TO ALL PAGES ====================
     const range = doc.bufferedPageRange();
@@ -1264,173 +1372,6 @@ const updateOrder = async (req, res) => {
   }
 };
 
-const createLocalOrder = async (req, res) => {
-  try {
-    const { items, subtotal, total, customer, payment, appointment } = req.body;
-
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return res
-        .status(400)
-        .json(new ApiError(400, "Order items are required"));
-    }
-
-    for (const item of items) {
-      if (!item.id || typeof item.quantity !== "number" || item.quantity <= 0) {
-        return res
-          .status(400)
-          .json(
-            new ApiError(400, "Each item must have a valid id and quantity > 0")
-          );
-      }
-    }
-
-    if (
-      !customer ||
-      !customer.firstName ||
-      !customer.lastName ||
-      !customer.phone
-    ) {
-      return res
-        .status(400)
-        .json(new ApiError(400, "Customer name and phone are required"));
-    }
-
-    const fullName =
-      `${customer.firstName.trim()} ${customer.lastName.trim()}`.trim();
-
-    const customerData = {
-      name: fullName,
-      phone: customer.phone,
-      email: customer.email || "",
-    };
-
-    const validPaymentMethods = ["card", "cash", "online", "bank_transfer"];
-    const validPaymentStatuses = ["partial", "full"];
-
-    const paymentData = {
-      amount: typeof payment?.amount === "number" ? payment.amount : total || 0,
-      method:
-        payment?.method && validPaymentMethods.includes(payment.method)
-          ? payment.method
-          : "cash", // default for walk-in
-      status:
-        payment?.status && validPaymentStatuses.includes(payment.status)
-          ? payment.status
-          : "partial",
-      currency: payment?.currency || "AU$",
-      transactionId: payment?.transactionId || "",
-      providerPayload: payment?.providerPayload || null,
-      note: payment?.note || "",
-      paidAt: payment?.paidAt ? new Date(payment.paidAt) : null,
-    };
-
-    const productIds = items.map((item) => item.id);
-    const products = await Product.find({ _id: { $in: productIds } }).lean();
-
-    if (products.length !== items.length) {
-      return res
-        .status(400)
-        .json(new ApiError(400, "One or more products not found or inactive"));
-    }
-
-    for (const item of items) {
-      const product = products.find((p) => p._id.toString() === item.id);
-      if (!product || product.stock < item.quantity) {
-        return res
-          .status(400)
-          .json(
-            new ApiError(
-              400,
-              `Insufficient stock for "${
-                product?.name || "product"
-              }". Available: ${product?.stock || 0}, Requested: ${
-                item.quantity
-              }`
-            )
-          );
-      }
-    }
-
-    for (const item of items) {
-      await Product.findByIdAndUpdate(
-        item.id,
-        { $inc: { stock: -item.quantity } },
-        { new: true, runValidators: true }
-      );
-    }
-
-    const updatedProducts = await Product.find({
-      _id: { $in: productIds },
-    }).lean();
-
-    const enrichedItems = items.map((item) => {
-      const product = updatedProducts.find((p) => p._id.toString() === item.id);
-      return {
-        id: item.id,
-        name: product.name,
-        brand: product.brand || "",
-        sku: product.sku || "",
-        category: product.category || "",
-        image: product.images?.[0] || "",
-        price: product.price,
-        quantity: item.quantity,
-      };
-    });
-
-    const appointmentData = appointment
-      ? {
-          id: appointment.id || null,
-          firstName: appointment.firstName || "",
-          lastName: appointment.lastName || "",
-          phone: appointment.phone || "",
-          email: appointment.email || "",
-          date: appointment.date || "",
-          time: appointment.time || "",
-          slotId: appointment.slotId || "",
-          timeSlotId: appointment.timeSlotId || "",
-        }
-      : {
-          id: null,
-          firstName: customerData.firstName || "",
-          lastName: customerData.lastName || "",
-          phone: customerData.phone || "",
-          email: customerData.email || "",
-          date: "",
-          time: "Offline",
-          slotId: "",
-          timeSlotId: "",
-        };
-
-    const order = await Order.create({
-      items: enrichedItems,
-      subtotal: Number(subtotal),
-      total: Number(total),
-      customer: customerData,
-      appointment: appointmentData,
-      payment: [paymentData],
-    });
-
-    if (customerData.email) {
-      try {
-        console.log(
-          `Order confirmation email would be sent to ${customerData.email}`
-        );
-      } catch (emailError) {
-        console.error("Failed to send order confirmation email:", emailError);
-      }
-    }
-
-    return res
-      .status(201)
-      .json(new ApiResponse(201, order, "Local order created successfully"));
-  } catch (error) {
-    console.error("Error creating local order:", error);
-    return res
-      .status(500)
-      .json(new ApiError(500, error.message || "Failed to create local order"));
-  }
-};
-
 const getOrderById = async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -1453,8 +1394,8 @@ const getOrderById = async (req, res) => {
     const products =
       productIds.length > 0
         ? await Product.find({ _id: { $in: productIds } })
-            .select("name price images sku")
-            .lean()
+          .select("name price images sku")
+          .lean()
         : [];
 
     const productMap = Object.fromEntries(
@@ -1495,6 +1436,5 @@ module.exports = {
   getAllOrders,
   DownloadPDF,
   updateOrder,
-  createLocalOrder,
   getOrderById,
 };

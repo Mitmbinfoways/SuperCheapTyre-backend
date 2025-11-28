@@ -3,7 +3,6 @@ const {
   createOrder,
   getAllOrders,
   DownloadPDF,
-  createLocalOrder,
   updateOrder, // Add this import
   getOrderById,
 } = require("../Controllers/Order.controller");
@@ -13,7 +12,6 @@ OrderRoute.get("/", getAllOrders);
 OrderRoute.post("/", createOrder);
 OrderRoute.get("/download/:orderId", DownloadPDF);
 OrderRoute.get("/:orderId", getOrderById);
-OrderRoute.post("/local", createLocalOrder);
 OrderRoute.put("/:orderId", updateOrder); // Add this route
 
 module.exports = OrderRoute;
