@@ -796,6 +796,12 @@ const DownloadPDF = async (req, res) => {
     const startYAfterHeader = 160;
     yPos = 290;
 
+    // Helper to strip HTML tags
+    const stripHtml = (html) => {
+      if (!html) return "";
+      return html.replace(/<[^>]*>?/gm, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+    };
+
     const renderTableHeader = () => {
       doc.rect(40, yPos, 515, tableHeaderHeight).fill(brandColor);
       doc.rect(40, yPos, 515, 2.5).fill(accentColor);
@@ -886,7 +892,7 @@ const DownloadPDF = async (req, res) => {
         const details = [];
         if (item.brand) details.push(item.brand);
         if (item.sku) details.push(`SKU: ${item.sku}`);
-        if (item.description) details.push(item.description);
+        if (item.description) details.push(stripHtml(item.description));
         doc.text(details.join(" • "), 58, yPos + 26, { width: 260 });
       }
 
@@ -1010,6 +1016,12 @@ const DownloadPDF = async (req, res) => {
               : dangerColor;
 
       let statusText = paymentToDisplay?.status?.toUpperCase() || "N/A";
+
+      // Fix: If payment amount covers the total, force status to FULL
+      if (paymentToDisplay.amount >= order.total - 0.01) {
+        statusText = "FULL";
+      }
+
       if (statusText === "PARTIAL" || statusText === "FULL") {
         statusText += " PAID";
       }
@@ -1332,7 +1344,16 @@ const DownloadPDF = async (req, res) => {
 const updateOrder = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { method = "cash", amount, status, note } = req.body;
+    const {
+      method,
+      amount,
+      status,
+      note,
+      items,
+      serviceItems,
+      subtotal,
+      total,
+    } = req.body;
 
     if (!mongoose.isValidObjectId(orderId)) {
       return res.status(400).json(new ApiError(400, "Invalid Order ID"));
@@ -1343,93 +1364,112 @@ const updateOrder = async (req, res) => {
       return res.status(404).json(new ApiError(404, "Order not found"));
     }
 
-    if (!amount || typeof amount !== "number" || amount <= 0) {
-      return res
-        .status(400)
-        .json(new ApiError(400, "Valid payment amount is required"));
+    // 1. Handle Items and Stock
+    if (items && Array.isArray(items)) {
+      // Revert stock for old items
+      if (order.items && order.items.length > 0) {
+        for (const item of order.items) {
+          // Find product by ID (item.id matches product._id)
+          await Product.findByIdAndUpdate(item.id, {
+            $inc: { stock: item.quantity },
+          });
+        }
+      }
+
+      // Deduct stock for new items and prepare new items array
+      const newItems = [];
+      for (const item of items) {
+        const product = await Product.findById(item.id);
+        if (!product) {
+          throw new Error(`Product not found: ${item.id}`);
+        }
+        if (product.stock < item.quantity) {
+          throw new Error(`Insufficient stock for product: ${product.name}`);
+        }
+
+        await Product.findByIdAndUpdate(item.id, {
+          $inc: { stock: -item.quantity },
+        });
+
+        newItems.push({
+          id: product._id.toString(),
+          name: product.name,
+          brand: product.brand,
+          sku: product.sku,
+          category: product.category,
+          image: product.images && product.images[0] ? product.images[0] : "",
+          price: product.price,
+          quantity: item.quantity,
+        });
+      }
+      order.items = newItems;
     }
 
-    const validStatuses = ["partial", "full"];
-    if (!status || !validStatuses.includes(status)) {
-      return res
-        .status(400)
-        .json(
-          new ApiError(
-            400,
-            `Payment status must be one of: ${validStatuses.join(", ")}`
-          )
-        );
+    // 2. Handle Service Items
+    if (serviceItems && Array.isArray(serviceItems)) {
+      order.serviceItems = serviceItems;
     }
 
-    let currentPayments = [];
-    if (Array.isArray(order.payment)) {
-      currentPayments = order.payment;
-    } else if (order.payment && typeof order.payment === "object") {
-      currentPayments = [order.payment];
-      console.log(`Fixed non-array payment field for order ${orderId}`);
+    // 3. Update Totals
+    if (subtotal !== undefined) order.subtotal = subtotal;
+    if (total !== undefined) order.total = total;
+
+    // 4. Handle Payment
+    // Only add payment if amount is provided and valid
+    if (amount && !isNaN(parseFloat(amount)) && parseFloat(amount) > 0) {
+      const newPayment = {
+        method: method || "cash",
+        amount: parseFloat(amount),
+        status: status || "partial",
+        currency: "AU$",
+        transactionId: "",
+        note: note?.trim() || "",
+        paidAt: new Date(),
+      };
+
+      // Ensure order.payment is an array
+      let currentPayments = [];
+      if (Array.isArray(order.payment)) {
+        currentPayments = order.payment;
+      } else if (order.payment) {
+        currentPayments = [order.payment];
+      }
+
+      order.payment = [...currentPayments, newPayment];
     }
 
-    const newPayment = {
-      method,
-      amount,
-      status,
-      currency: "AU$",
-      transactionId: "",
-      note: note?.trim() || "",
-      paidAt: new Date(),
-    };
+    // 5. Recalculate Payment Status
+    const totalPaid = Array.isArray(order.payment)
+      ? order.payment.reduce((sum, p) => sum + (p.amount || 0), 0)
+      : 0;
 
-    const updatedPayments = [...currentPayments, newPayment];
+    // Use the updated order.total (or existing) to check status
+    const invoiceTotal = order.total || order.subtotal;
 
-    const totalPaid = updatedPayments.reduce(
-      (sum, p) => sum + (p.amount || 0),
-      0
-    );
+    order.status = totalPaid >= invoiceTotal ? "full" : "partial";
 
-    const amountToMatch = order.subtotal;
+    // Also update totalPaid field if it exists in schema (it wasn't in schema but was used in previous code)
+    // The schema doesn't have totalPaid, but previous code used it. We'll skip it to be safe or check schema.
+    // Schema has 'payment' array.
 
-    const isFullyPaid = totalPaid >= amountToMatch;
-    const finalOrderStatus = isFullyPaid ? "full" : "partial";
-
-    // Auto-correct status if this payment completes the full amount
-    if (isFullyPaid && newPayment.status !== "full") {
-      newPayment.status = "full";
-    }
-
-    // Update the order
-    const updatedOrder = await Order.findByIdAndUpdate(
-      orderId,
-      {
-        $set: {
-          payment: updatedPayments,
-          totalPaid: totalPaid, // optional field — good to have
-          status: finalOrderStatus,
-          total: totalPaid, // Update the order's total field based on sum of payments
-        },
-      },
-      { new: true, runValidators: true }
-    );
+    await order.save();
 
     return res.status(200).json(
       new ApiResponse(
         200,
         {
-          order: updatedOrder,
-          addedPayment: newPayment,
+          order,
           totalPaid,
-          remainingBalance: Math.max(0, amountToMatch - totalPaid),
-          fullyPaid: isFullyPaid,
+          remainingBalance: Math.max(0, invoiceTotal - totalPaid),
         },
-        isFullyPaid
-          ? "Order fully paid with this payment"
-          : "Partial payment added successfully"
+        "Order updated successfully"
       )
     );
   } catch (error) {
-    console.error("Error adding cash payment:", error);
+    console.error("Error updating order:", error);
     return res
       .status(500)
-      .json(new ApiError(500, error.message || "Failed to add cash payment"));
+      .json(new ApiError(500, error.message || "Failed to update order"));
   }
 };
 
