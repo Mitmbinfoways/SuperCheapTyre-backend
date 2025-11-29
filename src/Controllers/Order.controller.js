@@ -405,16 +405,25 @@ const createOrder = async (req, res) => {
 
     const validPaymentMethods = ["card", "cash", "online", "eftpos", "afterpay"];
     const validPaymentStatuses = ["partial", "full", "failed"];
+
+    let paymentStatus =
+      payment?.status && validPaymentStatuses.includes(payment.status)
+        ? payment.status
+        : "partial";
+
+    const paymentAmount = typeof payment?.amount === "number" ? payment.amount : 0;
+
+    if (paymentAmount >= Number(subtotal)) {
+      paymentStatus = "full";
+    }
+
     const paymentData = {
-      amount: typeof payment?.amount === "number" ? payment.amount : 0,
+      amount: paymentAmount,
       method:
         payment?.method && validPaymentMethods.includes(payment.method)
           ? payment.method
           : "",
-      status:
-        payment?.status && validPaymentStatuses.includes(payment.status)
-          ? payment.status
-          : "partial",
+      status: paymentStatus,
       transactionId: payment?.transactionId || null,
       currency: payment?.currency || "AU$",
     };
@@ -503,14 +512,14 @@ const createOrder = async (req, res) => {
       total,
       appointment: {
         id: appointment._id,
-        firstName: appointment.firstname, // Align with Appointment schema
-        lastName: appointment.lastname, // Align with Appointment schema
+        firstName: appointment.firstname,
+        lastName: appointment.lastname,
         phone: appointment.phone,
         email: appointment.email,
         date: appointment.date,
         slotId: appointment.slotId,
-        time: slotInfo ? `${slotInfo.startTime}-${slotInfo.endTime}` : "", // Convert to string for schema
-        timeSlotId: appointment.timeSlotId || "", // Ensure schema alignment
+        time: slotInfo ? `${slotInfo.startTime}-${slotInfo.endTime}` : "",
+        timeSlotId: appointment.timeSlotId || "",
       },
       customer: customerData,
       payment: paymentData,
@@ -818,14 +827,16 @@ const DownloadPDF = async (req, res) => {
     let itemsPerPageEstimate = Math.floor((pageHeight - yPos) / 35); // Estimate with minimum row height
 
     // If we have 4 or more items, or if items likely won't fit with summary box
-    if (order.items.length >= 4 || order.items.length > itemsPerPageEstimate) {
+    const allItems = [...(order.items || []), ...(order.serviceItems || [])];
+
+    if (allItems.length >= 4 || allItems.length > itemsPerPageEstimate) {
       itemsWillNeedNewPage = true;
     }
 
-    for (let i = 0; i < order.items.length; i++) {
-      const item = order.items[i];
+    for (let i = 0; i < allItems.length; i++) {
+      const item = allItems[i];
       const itemTotal = item.price * item.quantity;
-      const hasDetails = item.brand || item.sku;
+      const hasDetails = item.brand || item.sku || item.description;
       const rowHeight = hasDetails ? 48 : 35;
 
       if (itemsEndYPos + rowHeight > pageHeight) {
@@ -837,14 +848,14 @@ const DownloadPDF = async (req, res) => {
       itemsEndYPos += rowHeight;
     }
 
-    for (let i = 0; i < order.items.length; i++) {
-      const item = order.items[i];
+    for (let i = 0; i < allItems.length; i++) {
+      const item = allItems[i];
       const itemTotal = item.price * item.quantity;
-      const hasDetails = item.brand || item.sku;
+      const hasDetails = item.brand || item.sku || item.description;
       const rowHeight = hasDetails ? 48 : 35;
 
       if (yPos + rowHeight > pageHeight) {
-        renderFooter(); // Add footer before new page
+        renderFooter();
         doc.addPage();
         yPos = startYAfterHeader;
         rowIndex = 0;
@@ -875,6 +886,7 @@ const DownloadPDF = async (req, res) => {
         const details = [];
         if (item.brand) details.push(item.brand);
         if (item.sku) details.push(`SKU: ${item.sku}`);
+        if (item.description) details.push(item.description);
         doc.text(details.join(" • "), 58, yPos + 26, { width: 260 });
       }
 
@@ -953,7 +965,7 @@ const DownloadPDF = async (req, res) => {
     // Alternative approach: Move summary box to second page if there are 4 or more products
     // or if items table likely forced a new page
     if (
-      order.items.length >= 4 ||
+      allItems.length >= 4 ||
       itemsWillNeedNewPage ||
       yPos + summaryAndFooterHeight > pageHeight
     ) {

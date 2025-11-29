@@ -70,19 +70,19 @@ const getAllAppointments = async (req, res) => {
         ...app,
         technicianDetails: technician
           ? {
-              firstName: technician.firstName,
-              lastName: technician.lastName,
-              email: technician.email,
-              phone: technician.phone,
-              isActive: technician.isActive,
-            }
+            firstName: technician.firstName,
+            lastName: technician.lastName,
+            email: technician.email,
+            phone: technician.phone,
+            isActive: technician.isActive,
+          }
           : null,
         slotDetails: slotDetails
           ? {
-              startTime: slotDetails.startTime,
-              endTime: slotDetails.endTime,
-              isBreak: slotDetails.isBreak,
-            }
+            startTime: slotDetails.startTime,
+            endTime: slotDetails.endTime,
+            isBreak: slotDetails.isBreak,
+          }
           : null,
       };
     });
@@ -124,8 +124,8 @@ const getAppointmentById = async (req, res) => {
     // Populate details
     const technician = appointment.Employee
       ? await Technician.findById(appointment.Employee).select(
-          "firstName lastName email phone isActive"
-        )
+        "firstName lastName email phone isActive"
+      )
       : null;
 
     const timeSlot = appointment.timeSlotId
@@ -144,10 +144,10 @@ const getAppointmentById = async (req, res) => {
       technicianDetails: technician || null,
       slotDetails: slotDetails
         ? {
-            startTime: slotDetails.startTime,
-            endTime: slotDetails.endTime,
-            isBreak: slotDetails.isBreak,
-          }
+          startTime: slotDetails.startTime,
+          endTime: slotDetails.endTime,
+          isBreak: slotDetails.isBreak,
+        }
         : null,
     };
 
@@ -227,6 +227,7 @@ const createAppointment = async (req, res) => {
       status,
       timeSlotId,
       notes,
+      Employee,
     } = req.body;
 
     if (!date || !slotId) {
@@ -311,9 +312,10 @@ const createAppointment = async (req, res) => {
       phone,
       email,
       date: appointmentDate,
-      slotId: validSlot.slotId, // ✅ store slotId string
+      slotId: validSlot.slotId,
       timeSlotId: timeSlotConfig._id,
       notes,
+      Employee: Employee || "",
       status: status || "booked",
     });
 
