@@ -104,6 +104,7 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
   if (!order) return "";
   const {
     items = [],
+    serviceItems = [],
     subtotal = 0,
     total = 0,
     appointment = {},
@@ -127,6 +128,35 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
               <strong>${product.name || "Unnamed Product"}</strong><br>
               <span style="color: #666; font-size: 12px;">
                 ${product.brand || "Unknown Brand"} | ${product.sku || "N/A"}
+              </span><br>
+              <span style="color: #4CAF50; font-weight: bold;">AU$${price.toFixed(
+        2
+      )}</span>
+            </div>
+          </td>
+          <td style="padding: 12px; border-bottom: 1px solid #e0e0e0; text-align: center;">
+            ${quantity}
+          </td>
+          <td style="padding: 12px; border-bottom: 1px solid #e0e0e0; text-align: right;">
+            AU$${(price * quantity).toFixed(2)}
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  const servicesHTML = serviceItems
+    .map((item) => {
+      const price = Number(item.price) || 0;
+      const quantity = Number(item.quantity) || 0;
+
+      return `
+        <tr>
+          <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">
+            <div style="display: inline-block; vertical-align: middle;">
+              <strong>${item.name || "Unnamed Service"}</strong><br>
+              <span style="color: #666; font-size: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;">
+                ${item.description || "Service"}
               </span><br>
               <span style="color: #4CAF50; font-weight: bold;">AU$${price.toFixed(
         2
@@ -236,7 +266,7 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
                         <th style="padding: 12px; text-align: right; color: #666; font-size: 14px;">Price</th>
                       </tr>
                     </thead>
-                    <tbody>${itemsHTML}</tbody>
+                    <tbody>${itemsHTML}${servicesHTML}</tbody>
                   </table>
                 </td>
               </tr>
@@ -896,7 +926,11 @@ const DownloadPDF = async (req, res) => {
         if (item.brand) details.push(item.brand);
         if (item.sku) details.push(`SKU: ${item.sku}`);
         if (item.description) details.push(stripHtml(item.description));
-        doc.text(details.join(" • "), 58, yPos + 26, { width: 260 });
+        doc.text(details.join(" • "), 58, yPos + 26, {
+          width: 260,
+          height: 20,
+          ellipsis: true,
+        });
       }
 
       doc
@@ -1039,18 +1073,6 @@ const DownloadPDF = async (req, res) => {
           paymentBoxY + 36
         );
 
-      if (paymentToDisplay.transactionId) {
-        doc
-          .fontSize(8)
-          .fillColor(textSecondary)
-          .font("Helvetica")
-          .text(
-            `Transaction ID: ${paymentToDisplay.transactionId}`,
-            leftBoxX + 18,
-            paymentBoxY + 58,
-            { width: leftBoxWidth - 36 }
-          );
-      }
     } else if (order.payment) {
       // Handle case where payment exists but is empty array or invalid
       const leftBoxX = 40;
