@@ -1417,16 +1417,6 @@ const updateOrder = async (req, res) => {
     // 4. Handle Payment
     // Only add payment if amount is provided and valid
     if (amount && !isNaN(parseFloat(amount)) && parseFloat(amount) > 0) {
-      const newPayment = {
-        method: method || "cash",
-        amount: parseFloat(amount),
-        status: status || "partial",
-        currency: "AU$",
-        transactionId: "",
-        note: note?.trim() || "",
-        paidAt: new Date(),
-      };
-
       // Ensure order.payment is an array
       let currentPayments = [];
       if (Array.isArray(order.payment)) {
@@ -1434,6 +1424,20 @@ const updateOrder = async (req, res) => {
       } else if (order.payment) {
         currentPayments = [order.payment];
       }
+
+      const existingPaid = currentPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+      const paymentAmount = parseFloat(amount);
+      const invoiceTotal = order.total;
+
+      const newPayment = {
+        method: method || "cash",
+        amount: paymentAmount,
+        status: (existingPaid + paymentAmount) >= invoiceTotal ? "full" : "partial" || status,
+        currency: "AU$",
+        transactionId: "",
+        note: note?.trim() || "",
+        paidAt: new Date(),
+      };
 
       order.payment = [...currentPayments, newPayment];
     }
