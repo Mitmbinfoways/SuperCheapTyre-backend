@@ -6,7 +6,7 @@ const Technician = require("../Models/Technician.model");
 
 const getAllAppointments = async (req, res) => {
   try {
-    const { status, search, page = 1, limit = 10 } = req.query;
+    const { status, search, page, limit } = req.query;
 
     const filter = {};
     if (status) filter.status = status;
@@ -21,18 +21,23 @@ const getAllAppointments = async (req, res) => {
       ];
     }
 
-    const pageNumber = parseInt(page, 10);
-    const limitNumber = parseInt(limit, 10);
-    const skip = (pageNumber - 1) * limitNumber;
+    const usePagination = page && limit;
 
-    const appointments = await Appointment.find(filter)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limitNumber)
-      .lean();
+    let appointmentsQuery = Appointment.find(filter).sort({ createdAt: -1 });
+
+    let pageNumber, limitNumber, skip;
+    if (usePagination) {
+      pageNumber = parseInt(page, 10) || 1;
+      limitNumber = parseInt(limit, 10) || 10;
+      skip = (pageNumber - 1) * limitNumber;
+
+      appointmentsQuery = appointmentsQuery.skip(skip).limit(limitNumber);
+    }
+
+    const appointments = await appointmentsQuery.lean();
 
     const technicianIds = [
-      ...new Set(appointments.map((a) => a.Employee).filter((id) => !!id)),
+      ...new Set(appointments.map((a) => a.Employee).filter(Boolean)),
     ];
 
     const technicians = await Technician.find({
@@ -42,23 +47,25 @@ const getAllAppointments = async (req, res) => {
       .lean();
 
     const technicianMap = {};
-    for (const tech of technicians) {
+    technicians.forEach((tech) => {
       technicianMap[tech._id.toString()] = tech;
-    }
+    });
 
     const timeSlotIds = [...new Set(appointments.map((a) => a.timeSlotId))];
-    const timeSlots = await TimeSlot.find({ _id: { $in: timeSlotIds } }).lean();
+    const timeSlots = await TimeSlot.find({
+      _id: { $in: timeSlotIds },
+    }).lean();
 
     const timeSlotMap = {};
-    for (const ts of timeSlots) {
+    timeSlots.forEach((ts) => {
       timeSlotMap[ts._id.toString()] = ts;
-    }
+    });
 
     const items = appointments.map((app) => {
       const timeSlot = timeSlotMap[app.timeSlotId?.toString()];
       let slotDetails = null;
 
-      if (timeSlot && timeSlot.generatedSlots?.length > 0) {
+      if (timeSlot?.generatedSlots?.length > 0) {
         slotDetails = timeSlot.generatedSlots.find(
           (s) => s.slotId === app.slotId
         );
@@ -86,6 +93,18 @@ const getAllAppointments = async (req, res) => {
           : null,
       };
     });
+
+    if (!usePagination) {
+      return res
+        .status(200)
+        .json(
+          new ApiResponse(
+            200,
+            { items },
+            "Appointments fetched successfully"
+          )
+        );
+    }
 
     const totalItems = await Appointment.countDocuments(filter);
     const totalPages = Math.ceil(totalItems / limitNumber);
@@ -160,7 +179,6 @@ const getAppointmentById = async (req, res) => {
   }
 };
 
-// GET /appointments/slots?date=YYYY-MM-DD&timeSlotId=ID
 const getAvailableSlots = async (req, res) => {
   try {
     const { date, timeSlotId } = req.query;
@@ -214,7 +232,6 @@ const getAvailableSlots = async (req, res) => {
   }
 };
 
-// POST /appointments
 const createAppointment = async (req, res) => {
   try {
     const {
