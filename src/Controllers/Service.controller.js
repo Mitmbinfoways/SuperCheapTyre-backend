@@ -120,43 +120,46 @@ const updateService = async (req, res) => {
       ? req.files.map((f) => `/Services/${f.filename}`)
       : [];
 
-    let keepImagesFromBody = [];
-    if (images) {
-      if (Array.isArray(images)) {
-        keepImagesFromBody = images;
-      } else if (typeof images === "string") {
-        try {
+    // Only update images if they are provided in the request or new files are uploaded
+    if (typeof images !== "undefined" || uploadedImages.length > 0) {
+      let keepImagesFromBody = [];
+      if (images) {
+        if (Array.isArray(images)) {
+          keepImagesFromBody = images;
+        } else if (typeof images === "string") {
+          try {
             // Try parsing if it's a JSON string of array
             const parsed = JSON.parse(images);
             keepImagesFromBody = Array.isArray(parsed) ? parsed : [parsed];
-        } catch (e) {
+          } catch (e) {
             // If not JSON, treat as single string url
             keepImagesFromBody = [images];
+          }
         }
       }
+
+      // Combine kept images and new uploaded images
+      const finalImages = [...keepImagesFromBody, ...uploadedImages];
+
+      // Find images to delete (those in DB but not in finalImages)
+      const imagesToDelete = service.images.filter(
+        (img) => !finalImages.includes(img)
+      );
+
+      // Delete removed images from filesystem
+      imagesToDelete.forEach((img) => {
+        const filePath = path.join(__dirname, "../../public", img);
+        if (fs.existsSync(filePath)) {
+          try {
+            fs.unlinkSync(filePath);
+          } catch (err) {
+            console.error(`Failed to delete image: ${filePath}`, err);
+          }
+        }
+      });
+
+      service.images = finalImages;
     }
-
-    // Combine kept images and new uploaded images
-    const finalImages = [...keepImagesFromBody, ...uploadedImages];
-    
-    // Find images to delete (those in DB but not in finalImages)
-    const imagesToDelete = service.images.filter(
-      (img) => !finalImages.includes(img)
-    );
-
-    // Delete removed images from filesystem
-    imagesToDelete.forEach((img) => {
-      const filePath = path.join(__dirname, "../../public", img);
-      if (fs.existsSync(filePath)) {
-        try {
-          fs.unlinkSync(filePath);
-        } catch (err) {
-          console.error(`Failed to delete image: ${filePath}`, err);
-        }
-      }
-    });
-
-    service.images = finalImages;
 
     await service.save();
 
