@@ -11,6 +11,7 @@ const {
   getProductById,
   HomeData,
   getSimilarProducts,
+  getSameBrandPatternProducts,
 } = require("../Controllers/Product.controller");
 
 // Multer setup for product images
@@ -27,11 +28,12 @@ const productStorage = multer.diskStorage({
 
 const uploadProductImages = multer({ storage: productStorage });
 
-ProductRoute.get("/dashboard" ,DashboardCount)
-ProductRoute.get("/homedata" ,HomeData)
+ProductRoute.get("/dashboard", DashboardCount)
+ProductRoute.get("/homedata", HomeData)
 ProductRoute.get("/", getAllProducts);
 ProductRoute.get("/:id", getProductById);
 ProductRoute.get("/:id/similar", getSimilarProducts);
+ProductRoute.get("/:id/same-brand-pattern", getSameBrandPatternProducts);
 ProductRoute.post("/", uploadProductImages.array("images", 5), CreateProduct);
 ProductRoute.patch("/:id", uploadProductImages.array("images", 5), UpdateProduct);
 ProductRoute.delete("/:id", DeleteProduct);

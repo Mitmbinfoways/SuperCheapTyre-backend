@@ -5,6 +5,7 @@ const Product = require("../Models/Product.model");
 const Appointment = require("../Models/Appointment.model");
 const TimeSlot = require("../Models/TimeSlot.model");
 const Service = require("../Models/Service.model");
+const ContactInfo = require("../Models/ContactInfo.model");
 const ApiResponse = require("../Utils/ApiResponse");
 const ApiError = require("../Utils/ApiError");
 const sendMail = require("../Utils/Nodemailer");
@@ -561,6 +562,8 @@ const DownloadPDF = async (req, res) => {
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
     }
+
+    const contactInfo = await ContactInfo.findOne();
     const doc = new PDFDocument({
       margin: 0,
       size: "A4",
@@ -630,17 +633,17 @@ const DownloadPDF = async (req, res) => {
       doc.text("Super Cheap Tyres", logoX, logoBottom + addressSpacing);
       doc.fontSize(8).fillColor("#cbd5e1").font("Helvetica");
       doc.text(
-        "114 Hammond Rd, Dandenong South VIC, 3175",
+        contactInfo?.address || "114 Hammond Rd, Dandenong South VIC, 3175",
         logoX,
         logoBottom + addressSpacing + 14
       );
       doc.text(
-        "Phone: (03) 9793 6190",
+        `Phone: ${contactInfo?.phone || "(03) 9793 6190"}`,
         logoX,
         logoBottom + addressSpacing + 25
       );
       doc.text(
-        "Email: goodwillmotors@hotmail.com",
+        `Email: ${contactInfo?.email || "goodwillmotors@hotmail.com"}`,
         logoX,
         logoBottom + addressSpacing + 36
       );

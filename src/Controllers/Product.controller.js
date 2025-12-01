@@ -193,7 +193,6 @@ const CreateProduct = async (req, res) => {
     }
 
     const existingProduct = await Product.findOne({
-      name: name.trim(),
       sku: sku.trim(),
       isDelete: false,
     });
@@ -270,7 +269,8 @@ const CreateProduct = async (req, res) => {
       .status(201)
       .json(new ApiResponse(201, product, "Product created successfully"));
   } catch (error) {
-    console.error("CreateProduct Error:", error);
+    console.log(error)
+    // console.error("CreateProduct Error:", error);
     return res.status(500).json(new ApiError(500, "Internal Server Error"));
   }
 };
@@ -348,7 +348,7 @@ const UpdateProduct = async (req, res) => {
       description,
       images,
       price,
-      pricetext,      
+      pricetext,
       stock,
       tyreSpecifications,
       wheelSpecifications,
@@ -428,8 +428,8 @@ const UpdateProduct = async (req, res) => {
           keepImagesFromBody = Array.isArray(parsed)
             ? parsed
             : parsed
-            ? [parsed]
-            : [];
+              ? [parsed]
+              : [];
         } catch (_) {
           keepImagesFromBody = images ? [images] : [];
         }
@@ -448,8 +448,8 @@ const UpdateProduct = async (req, res) => {
         typeof keepImagesFromBody !== "undefined"
           ? keepImagesFromBody || []
           : Array.isArray(existing.images)
-          ? existing.images
-          : [];
+            ? existing.images
+            : [];
       const finalImages = Array.from(new Set([...keepList, ...uploadedImages]));
 
       const previousImages = Array.isArray(existing.images)
@@ -469,7 +469,7 @@ const UpdateProduct = async (req, res) => {
           );
           try {
             await fs.promises.unlink(filePath);
-          } catch (_) {}
+          } catch (_) { }
         });
         await Promise.all(deletions);
       }
@@ -794,6 +794,72 @@ const getSimilarProducts = async (req, res) => {
   }
 };
 
+const getSameBrandPatternProducts = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json(new ApiError(404, "Product not found"));
+    }
+
+    const { brand, category, tyreSpecifications } = product;
+
+    if (!brand) {
+      return res
+        .status(200)
+        .json(
+          new ApiResponse(
+            200,
+            [],
+            "No products found (missing brand)"
+          )
+        );
+    }
+
+    const filter = {
+      _id: { $ne: id },
+      brand: brand,
+      isDelete: false,
+      isActive: true,
+    };
+
+    if (category === "Tyres") {
+      const pattern = tyreSpecifications?.pattern;
+      if (!pattern) {
+        return res
+          .status(200)
+          .json(
+            new ApiResponse(
+              200,
+              [],
+              "No products found (missing pattern for tyre)"
+            )
+          );
+      }
+      filter["tyreSpecifications.pattern"] = pattern;
+      filter.category = "Tyres";
+    } else if (category === "Wheels") {
+      filter.category = "Wheels";
+    }
+
+    const products = await Product.find(filter);
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          products,
+          "Products fetched successfully"
+        )
+      );
+  } catch (error) {
+    console.error("getSameBrandPatternProducts Error:", error);
+    return res.status(500).json(new ApiError(500, "Internal Server Error"));
+  }
+};
+
 module.exports = {
   getAllProducts,
   CreateProduct,
@@ -803,4 +869,5 @@ module.exports = {
   getSimilarProducts,
   UpdateProduct,
   HomeData,
+  getSameBrandPatternProducts,
 };
