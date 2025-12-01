@@ -838,9 +838,6 @@ const getSameBrandPatternProducts = async (req, res) => {
           );
       }
       filter["tyreSpecifications.pattern"] = pattern;
-      filter.category = "Tyres";
-    } else if (category === "Wheels") {
-      filter.category = "Wheels";
     }
 
     const products = await Product.find(filter);
