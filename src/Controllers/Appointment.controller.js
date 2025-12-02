@@ -3,6 +3,24 @@ const ApiError = require("../Utils/ApiError");
 const Appointment = require("../Models/Appointment.model");
 const TimeSlot = require("../Models/TimeSlot.model");
 const Technician = require("../Models/Technician.model");
+const sendMail = require("../Utils/Nodemailer");
+
+
+const generateAdminAppointmentEmail = (appointment, slotInfo) => {
+  return `
+    <h2>New Appointment Created</h2>
+
+    <p><strong>Name:</strong> ${appointment.firstname} ${appointment.lastname
+    }</p>
+    <p><strong>Phone:</strong> ${appointment.phone}</p>
+    <p><strong>Email:</strong> ${appointment.email}</p>
+
+    <p><strong>Date:</strong> ${appointment.date}</p>
+    <p><strong>Time Slot:</strong> ${slotInfo ? `${slotInfo.startTime} - ${slotInfo.endTime}` : "N/A"
+    }</p>
+
+  `;
+};
 
 const getAllAppointments = async (req, res) => {
   try {
@@ -340,6 +358,24 @@ const createAppointment = async (req, res) => {
       status: status || "booked",
     });
 
+    try {
+      const slotInfo = {
+        startTime: validSlot.startTime,
+        endTime: validSlot.endTime,
+        isBreak: validSlot.isBreak,
+      };
+
+      const adminHTML = generateAdminAppointmentEmail(created, slotInfo);
+
+      await sendMail(
+        process.env.SMTP_USER,
+        "New Appointment Created",
+        adminHTML
+      );
+    } catch (emailError) {
+      console.error("Email Error:", emailError);
+    }
+
     return res
       .status(201)
       .json(new ApiResponse(201, created, "Appointment created"));
@@ -457,6 +493,10 @@ const updateAppointment = async (req, res) => {
   }
 };
 
+const Order = require("../Models/Order.model");
+
+// ... existing code ...
+
 const DeleteAppointment = async (req, res) => {
   try {
     const { id } = req.params;
@@ -464,6 +504,16 @@ const DeleteAppointment = async (req, res) => {
 
     if (!appointment) {
       return res.status(404).json(new ApiError(404, "Appointment not found"));
+    }
+
+    const orders = await Order.find({ "appointment.id": id });
+
+    const hasPayment = orders.some(order =>
+      order.payment && order.payment.some(p => p.amount > 0)
+    );
+
+    if (hasPayment) {
+      return res.status(400).json(new ApiError(400, "This appointment cannot be deleted because it has associated payment records"));
     }
 
     appointment.isDelete = true;
