@@ -467,6 +467,7 @@ const DeleteAppointment = async (req, res) => {
     }
 
     appointment.isDelete = true;
+    appointment.status = "cancelled";
     await appointment.save();
 
     return res
