@@ -12,6 +12,7 @@ const appointmentSchema = new mongoose.Schema(
     timeSlotId: { type: String },
     Employee: { type: String },
     notes: { type: String },
+    isDelete: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

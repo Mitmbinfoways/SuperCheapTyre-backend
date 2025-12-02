@@ -8,7 +8,7 @@ const getAllAppointments = async (req, res) => {
   try {
     const { status, search, page, limit } = req.query;
 
-    const filter = {};
+    const filter = { isDelete: false };
     if (status) filter.status = status;
     if (search) {
       const searchRegex = { $regex: search, $options: "i" };
@@ -134,7 +134,10 @@ const getAllAppointments = async (req, res) => {
 const getAppointmentById = async (req, res) => {
   try {
     const { id } = req.params;
-    const appointment = await Appointment.findById(id).lean();
+    const appointment = await Appointment.findOne({
+      _id: id,
+      isDelete: false,
+    }).lean();
 
     if (!appointment) {
       return res.status(404).json(new ApiError(404, "Appointment not found"));
@@ -314,6 +317,7 @@ const createAppointment = async (req, res) => {
       date: appointmentDate,
       slotId: validSlot.slotId,
       status: { $in: ["reserved", "confirmed"] },
+      isDelete: false,
     });
 
     if (already) {
@@ -362,7 +366,7 @@ const updateAppointment = async (req, res) => {
     } = req.body;
 
     // Find existing appointment
-    const appointment = await Appointment.findById(id);
+    const appointment = await Appointment.findOne({ _id: id, isDelete: false });
     if (!appointment) {
       return res.status(404).json(new ApiError(404, "Appointment not found"));
     }
@@ -417,6 +421,7 @@ const updateAppointment = async (req, res) => {
         date: appointmentDate,
         slotId: validSlot.slotId,
         status: { $in: ["reserved", "confirmed"] },
+        isDelete: false,
       });
 
       if (already) {
