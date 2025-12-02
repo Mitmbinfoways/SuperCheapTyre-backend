@@ -457,10 +457,32 @@ const updateAppointment = async (req, res) => {
   }
 };
 
+const DeleteAppointment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const appointment = await Appointment.findById(id);
+
+    if (!appointment) {
+      return res.status(404).json(new ApiError(404, "Appointment not found"));
+    }
+
+    appointment.isDelete = true;
+    await appointment.save();
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, {}, "Appointment deleted successfully"));
+  } catch (error) {
+    console.error("Error deleting appointment:", error);
+    return res.status(500).json(new ApiError(500, "Internal Server Error"));
+  }
+};
+
 module.exports = {
   getAllAppointments,
   getAppointmentById,
   getAvailableSlots,
   createAppointment,
   updateAppointment,
+  DeleteAppointment,
 };
