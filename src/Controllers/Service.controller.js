@@ -67,6 +67,10 @@ const getAllServices = async (req, res) => {
       filter.isActive = isActive === "true";
     }
 
+    if (req.query.cart_Recommended) {
+      filter.cart_Recommended = req.query.cart_Recommended === "true";
+    }
+
     const services = await Service.find(filter).sort({ createdAt: -1 });
 
     return res
