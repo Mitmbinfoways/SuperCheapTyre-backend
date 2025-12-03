@@ -100,7 +100,7 @@ const getAllOrders = async (req, res) => {
   }
 };
 
-const generateOrderConfirmationEmail = (order, productsData = []) => {
+const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = {}) => {
   if (!order) return "";
   const {
     items = [],
@@ -109,8 +109,12 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
     total = 0,
     appointment = {},
     customer = {},
-    payment = {},
+    payment = [],
   } = order;
+
+  const paymentInfo = Array.isArray(payment) ? payment[0] || {} : payment || {};
+
+  const logoUrl = `${process.env.BACKEND_APP_URL}/logo_light.png`;
 
   const itemsHTML = items
     .map((item) => {
@@ -189,6 +193,16 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
     });
   };
 
+  const dateObj = new Date(order.createdAt || new Date());
+  const dateStr = dateObj.toISOString().slice(0, 10).replace(/-/g, "");
+  const idSuffix = order._id?.toString()?.slice(-6)?.toUpperCase() || "000000";
+  const invoiceNum = `INV-${dateStr}-${idSuffix}`;
+  const invoiceDate = dateObj.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+
   return `
     <!DOCTYPE html>
     <html lang="en">
@@ -205,8 +219,25 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
 
               <!-- Header -->
               <tr>
-                <td style="background-color: #4CAF50; padding: 30px; text-align: center;">
-                  <h1 style="color: #ffffff; margin: 0; font-size: 28px;">Order Confirmed!</h1>
+                <td style="background-color: #0f172a; padding: 30px;">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="vertical-align: top;">
+                        <img src="${logoUrl}" width="100" alt="SCT Logo" style="display: block; margin-bottom: 10px;" />
+                        <div style="font-size: 11px; font-weight: bold; color: #ffffff; margin-bottom: 5px;">Super Cheap Tyres</div>
+                        <div style="font-size: 8px; color: #cbd5e1; line-height: 1.4;">
+                          ${contactInfo?.address || "114 Hammond Rd, Dandenong South VIC, 3175"}<br>
+                          Phone: ${contactInfo?.phone || "(03) 9793 6190"}<br>
+                          Email: ${contactInfo?.email || "goodwillmotors@hotmail.com"}
+                        </div>
+                      </td>
+                      <td style="text-align: right; vertical-align: top;">
+                        <div style="font-size: 34px; font-weight: bold; color: #ffffff; margin-bottom: 5px;">INVOICE</div>
+                        <div style="font-size: 9px; color: #cbd5e1;">Invoice #: ${invoiceNum}</div>
+                        <div style="font-size: 9px; color: #cbd5e1;">Date: ${invoiceDate}</div>
+                      </td>
+                    </tr>
+                  </table>
                 </td>
               </tr>
 
@@ -274,18 +305,17 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
                <tr>
                 <td style="padding: 0 30px 30px;">
                   <div style="
-                    background-color: ${payment.status === "completed" ? "#e8f5e9" : "#fff3e0"
+                    background-color: ${paymentInfo.status === "full" ? "#e8f5e9" : "#fff3e0"
     };
                     padding: 15px;
                     border-radius: 4px;
-                    border-left: 4px solid ${payment.status === "completed" ? "#4CAF50" : "#FF9800"
+                    border-left: 4px solid ${paymentInfo.status === "full" ? "#4CAF50" : "#FF9800"
     };
                   ">
                     <p style="margin: 0; color: #333; font-size: 14px;">
-                      <strong>Payment Status:</strong> ${payment.status || "partial"
-    } 
-                      ${payment.method ? ` • Method: ${payment.method}` : ""}
+                      <strong>Payment Status:</strong> ${paymentInfo.status === "full" ? "FULL PAID" : "PARTIAL PAID"}
                     </p>
+                    ${paymentInfo.method ? `<p style="margin: 5px 0 0; color: #333; font-size: 14px;"><strong>Method:</strong> ${paymentInfo.method === "card" ? "Credit Card/Debit Card" : paymentInfo.method.toUpperCase()}</p>` : ""}
                   </div>
                 </td>
               </tr>
@@ -312,9 +342,9 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
 
               <!-- Footer -->
               <tr>
-                <td style="background-color: #f9f9f9; padding: 20px 30px; text-align: center; border-top: 1px solid #e0e0e0;">
-                  <p style="margin: 0; color: #666; font-size: 14px;">If you have any questions, please contact us.</p>
-                  <p style="margin: 0; color: #999; font-size: 12px;">This is an automated email. Please do not reply.</p>
+                <td style="padding: 30px; text-align: center; border-top: 1.5px solid #e2e8f0;">
+                  <p style="margin: 0 0 10px; color: #1e293b; font-size: 11px; font-weight: bold;">Thank you for your business!</p>
+                  <p style="margin: 0; color: #64748b; font-size: 8.5px;">If you have any questions about this invoice, please contact us</p>
                 </td>
               </tr>
 
@@ -326,8 +356,6 @@ const generateOrderConfirmationEmail = (order, productsData = []) => {
     </html>
   `;
 };
-
-
 
 const createOrder = async (req, res) => {
   try {
@@ -543,11 +571,12 @@ const createOrder = async (req, res) => {
     });
 
     try {
-      const customerHTML = generateOrderConfirmationEmail(order);
+      const contactInfo = await ContactInfo.findOne().lean();
+      const customerHTML = generateOrderConfirmationEmail(order, [], contactInfo);
       await sendMail(
         appointment.email,
         "Order Confirmation - Your Appointment is Confirmed!",
-        customerHTML
+        customerHTML,
       );
     } catch (emailError) {
       console.error("Email Error:", emailError);
