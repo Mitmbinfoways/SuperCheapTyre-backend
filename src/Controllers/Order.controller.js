@@ -154,13 +154,19 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
       const price = Number(item.price) || 0;
       const quantity = Number(item.quantity) || 0;
 
+      const clampText = (text = "", maxChars = 150) => {
+        if (!text) return "Service";
+        return text.length > maxChars ? text.substring(0, maxChars) + "..." : text;
+      };
+
+
       return `
         <tr>
           <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">
             <div style="display: inline-block; vertical-align: middle;">
               <strong>${item.name || "Unnamed Service"}</strong><br>
-              <span style="color: #666; font-size: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;">
-                ${item.description || "Service"}
+              <span style="color: #666; font-size: 12px;">
+                ${clampText(item.description, 155)}
               </span><br>
               <span style="color: #4CAF50; font-weight: bold;">AU$${price.toFixed(
         2
