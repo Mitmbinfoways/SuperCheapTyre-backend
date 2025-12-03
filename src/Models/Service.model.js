@@ -25,6 +25,10 @@ const serviceSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    cart_Recommended: {
+      type: Boolean,
+      default: false,
+    },
     isDelete: {
       type: Boolean,
       default: false,

@@ -27,7 +27,7 @@ const uploadServiceImages = multer({ storage: serviceStorage });
 // Create a new service
 const createService = async (req, res) => {
   try {
-    const { name, description, price, isActive } = req.body;
+    const { name, description, price, isActive, cart_Recommended } = req.body;
 
     if (!name || typeof price === "undefined") {
       return res
@@ -45,6 +45,7 @@ const createService = async (req, res) => {
       price: Number(price),
       images: uploadedImages,
       isActive: isActive === "true" || isActive === true,
+      cart_Recommended: cart_Recommended === "true" || cart_Recommended === true,
     });
 
     return res
@@ -101,7 +102,7 @@ const getServiceById = async (req, res) => {
 const updateService = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, price, isActive, images } = req.body;
+    const { name, description, price, isActive, images, cart_Recommended } = req.body;
 
     const service = await Service.findById(id);
     if (!service || service.isDelete) {
@@ -113,6 +114,9 @@ const updateService = async (req, res) => {
     if (typeof price !== "undefined") service.price = Number(price);
     if (typeof isActive !== "undefined") {
       service.isActive = isActive === "true" || isActive === true;
+    }
+    if (typeof cart_Recommended !== "undefined") {
+      service.cart_Recommended = cart_Recommended === "true" || cart_Recommended === true;
     }
 
     // Handle images
