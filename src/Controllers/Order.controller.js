@@ -765,25 +765,33 @@ const DownloadPDF = async (req, res) => {
 
     // ==================== CUSTOMER DETAILS SECTION ====================
     let yPos = 160;
+
+    // ---------------- BILL TO BOX ----------------
     doc.opacity(0.03);
     doc.roundedRect(40, yPos, 245, 110, 8).fill(accentColor);
     doc.opacity(1);
     doc.roundedRect(40, yPos, 245, 110, 8).lineWidth(1.5).stroke(borderColor);
 
-    doc
-      .fontSize(9)
-      .fillColor(textSecondary)
-      .font("Helvetica-Bold")
-      .text("BILL TO", 58, yPos + 15);
-    doc
-      .fontSize(13)
-      .fillColor(textPrimary)
-      .font("Helvetica-Bold")
-      .text(order.customer.name, 58, yPos + 35);
-    doc.fontSize(9).fillColor(textSecondary).font("Helvetica");
-    doc.text(order.customer.phone, 58, yPos + 55);
-    doc.text(order.customer.email || "N/A", 58, yPos + 70);
+    // Start Y spacing
+    let billY = yPos + 15;
 
+    doc.fontSize(9).fillColor(textSecondary).font("Helvetica-Bold");
+    doc.text("BILL TO", 58, billY);
+
+    billY += 20; // name spacing
+
+    doc.fontSize(13).fillColor(textPrimary).font("Helvetica-Bold");
+    doc.text(order.customer.name, 58, billY);
+
+    billY += 20;
+
+    doc.fontSize(9).fillColor(textSecondary).font("Helvetica");
+    doc.text(order.customer.phone, 58, billY);
+
+    billY += 15;
+    doc.text(order.customer.email || "N/A", 58, billY);
+
+    // ---------------- APPOINTMENT BOX ----------------
     if (
       order.appointment.firstName &&
       order.appointment.lastName &&
@@ -793,29 +801,35 @@ const DownloadPDF = async (req, res) => {
       doc.opacity(0.03);
       doc.roundedRect(295, yPos, 260, 110, 8).fill(accentColor);
       doc.opacity(1);
-      doc
-        .roundedRect(295, yPos, 260, 110, 8)
-        .lineWidth(1.5)
-        .stroke(borderColor);
-      doc
-        .fontSize(9)
-        .fillColor(textSecondary)
-        .font("Helvetica-Bold")
-        .text("APPOINTMENT DETAILS", 313, yPos + 15);
-      doc
-        .fontSize(13)
-        .fillColor(textPrimary)
-        .font("Helvetica-Bold")
-        .text(
-          `${order.appointment.firstName} ${order.appointment.lastName}`,
-          313,
-          yPos + 35
-        );
-      doc.fontSize(9).fillColor(textSecondary).font("Helvetica");
-      doc.text(order.appointment.phone, 313, yPos + 55);
-      doc.text(order.appointment.email, 313, yPos + 70);
+      doc.roundedRect(295, yPos, 260, 110, 8).lineWidth(1.5).stroke(borderColor);
 
-      doc.circle(318, yPos + 88, 3).fill(accentColor);
+      let apY = yPos + 15;
+
+      doc.fontSize(9).fillColor(textSecondary).font("Helvetica-Bold");
+      doc.text("APPOINTMENT DETAILS", 313, apY);
+
+      apY += 20;
+
+      doc.fontSize(13).fillColor(textPrimary).font("Helvetica-Bold");
+      doc.text(
+        `${order.appointment.firstName} ${order.appointment.lastName}`,
+        313,
+        apY
+      );
+
+      apY += 20;
+
+      doc.fontSize(9).fillColor(textSecondary).font("Helvetica");
+      doc.text(order.appointment.phone, 313, apY);
+
+      apY += 15;
+      doc.text(order.appointment.email, 313, apY);
+
+      // Bullet circle
+      apY += 15;
+      doc.circle(318, apY + 3, 3).fill(accentColor);
+
+      // Date + Time
       const formattedAppointmentDate = order.appointment.date
         ? new Date(order.appointment.date).toLocaleDateString("en-US", {
           weekday: "short",
@@ -824,15 +838,15 @@ const DownloadPDF = async (req, res) => {
           day: "numeric",
         })
         : "";
+
       doc
         .fontSize(9)
         .fillColor(textPrimary)
         .font("Helvetica-Bold")
-        .text(
-          `${formattedAppointmentDate} ${order.appointment.time}`,
-          328,
-          yPos + 85
-        );
+        .text(`Date : ${formattedAppointmentDate}`, 328, apY);
+
+      apY += 10;
+      doc.text(`Time : ${order.appointment.time}`, 328, apY + 3);
     }
 
     // ==================== ITEMS TABLE ====================
@@ -934,18 +948,18 @@ const DownloadPDF = async (req, res) => {
         .font("Helvetica-Bold")
         .text(item.name, 58, yPos + 10, { width: 260, lineBreak: false });
 
-      if (hasDetails) {
-        doc.fontSize(7.5).fillColor(textSecondary).font("Helvetica");
-        const details = [];
-        if (item.brand) details.push(item.brand);
-        if (item.sku) details.push(`SKU: ${item.sku}`);
-        if (item.description) details.push(stripHtml(item.description));
-        doc.text(details.join(" • "), 58, yPos + 26, {
-          width: 260,
-          height: 20,
-          ellipsis: true,
-        });
-      }
+      // if (hasDetails) {
+      //   doc.fontSize(7.5).fillColor(textSecondary).font("Helvetica");
+      //   const details = [];
+      //   if (item.brand) details.push(item.brand);
+      //   if (item.sku) details.push(`SKU: ${item.sku}`);
+      //   if (item.description) details.push(stripHtml(item.description));
+      //   doc.text(details.join(" • "), 58, yPos + 26, {
+      //     width: 260,
+      //     height: 20,
+      //     ellipsis: true,
+      //   });
+      // }
 
       doc
         .fontSize(10)
