@@ -351,7 +351,7 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
 
       <tr>
         <td style="text-align: right; color: #666;"><strong>Paid Amount:</strong></td>
-        <td style="text-align: right; color: #10b981; font-weight: bold;">AU$${paidAmount.toFixed(2)}</td>
+        <td style="text-align: right; color: #4CAF50; font-weight: bold;">AU$${paidAmount.toFixed(2)}</td>
       </tr>
 
       <tr>
