@@ -210,9 +210,8 @@ const getAvailableSlots = async (req, res) => {
       return res.status(400).json(new ApiError(400, "Date is required"));
     }
 
-    // Normalize date to YYYY-MM-DD
-    const queryDate = new Date(date);
-    queryDate.setHours(0, 0, 0, 0);
+    // Use date string directly
+    const queryDate = date;
 
     // Get time slot configuration
     let timeSlotConfig;
@@ -231,7 +230,7 @@ const getAvailableSlots = async (req, res) => {
     // Get booked appointments for this date
     const bookedAppointments = await Appointment.find({
       date: queryDate,
-      status: { $in: ["reserved", "confirmed"] },
+      status: { $in: ["reserved", "confirmed", "booked"] },
     });
 
     const bookedSlotIds = bookedAppointments.map((appt) => appt.slotId); // string
@@ -332,21 +331,21 @@ const createAppointment = async (req, res) => {
         .json(new ApiError(400, "Invalid or break time slot selected"));
     }
 
-    
+
     // Check if slot is already booked
     const already = await Appointment.findOne({
       date: date,
       slotId: validSlot.slotId,
-      status: { $in: ["reserved", "confirmed"] },
+      status: { $in: ["reserved", "confirmed", "booked"] },
       isDelete: false,
     });
-    
+
     if (already) {
       return res
-      .status(400)
-      .json(new ApiError(400, "This slot is already booked"));
+        .status(400)
+        .json(new ApiError(400, "This slot is already booked"));
     }
-    
+
     // Create appointment
     const created = await Appointment.create({
       firstname,
@@ -360,7 +359,7 @@ const createAppointment = async (req, res) => {
       Employee: Employee || "",
       status: status || "booked",
     });
-    
+
     try {
       const slotInfo = {
         startTime: validSlot.startTime,
@@ -459,7 +458,7 @@ const updateAppointment = async (req, res) => {
         _id: { $ne: id }, // exclude current appointment
         date: appointmentDate,
         slotId: validSlot.slotId,
-        status: { $in: ["reserved", "confirmed"] },
+        status: { $in: ["reserved", "confirmed", "booked"] },
         isDelete: false,
       });
 
