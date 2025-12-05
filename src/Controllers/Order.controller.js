@@ -896,7 +896,7 @@ const DownloadPDF = async (req, res) => {
     // If we have 4 or more items, or if items likely won't fit with summary box
     const allItems = [...(order.items || []), ...(order.serviceItems || [])];
 
-    if (allItems.length >= 4 || allItems.length > itemsPerPageEstimate) {
+    if (allItems.length > itemsPerPageEstimate) {
       itemsWillNeedNewPage = true;
     }
 
@@ -1036,9 +1036,7 @@ const DownloadPDF = async (req, res) => {
     // Alternative approach: Move summary box to second page if there are 4 or more products
     // or if items table likely forced a new page
     if (
-      allItems.length >= 4 ||
-      itemsWillNeedNewPage ||
-      yPos + summaryAndFooterHeight > pageHeight
+      yPos + maxBoxHeight + 20 > pageHeight
     ) {
       renderFooter(); // Add footer before new page
       doc.addPage();
@@ -1072,7 +1070,7 @@ const DownloadPDF = async (req, res) => {
         .text("Payment Status:", leftBoxX + 18, paymentBoxY + 18);
 
       const paymentStatusColor =
-        paymentToDisplay.status === "completed"
+        paymentToDisplay.status === "full"
           ? successColor
           : paymentToDisplay.status === "partial"
             ? warningColor
@@ -1083,7 +1081,7 @@ const DownloadPDF = async (req, res) => {
       let statusText = paymentToDisplay?.status?.toUpperCase() || "N/A";
 
       // Fix: If payment amount covers the total, force status to FULL
-      if (paymentToDisplay.amount >= order.total - 0.01) {
+      if (paymentToDisplay.subtotal >= order.total) {
         statusText = "FULL";
       }
 
