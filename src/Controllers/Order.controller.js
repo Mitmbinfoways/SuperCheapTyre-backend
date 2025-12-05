@@ -12,6 +12,7 @@ const sendMail = require("../Utils/Nodemailer");
 const dayjs = require("dayjs");
 const path = require("path");
 const fs = require("fs");
+const Tax = require("../Models/Tax.model");
 
 const getAllOrders = async (req, res) => {
   try {
@@ -556,11 +557,16 @@ const createOrder = async (req, res) => {
       };
     });
 
+    const taxDoc = await Tax.findOne().lean();
+    const taxAmount = subtotal * (taxDoc.percentage / 100);
+
     const order = await Order.create({
       items: enrichedItems,
       serviceItems: enrichedServiceItems,
       subtotal,
       total,
+      tax: taxDoc.percentage,
+      taxAmount,
       appointment: {
         id: appointment._id,
         firstName: appointment.firstname,
@@ -575,6 +581,8 @@ const createOrder = async (req, res) => {
       customer: customerData,
       payment: paymentData,
     });
+
+    console.log(order)
 
     try {
       const contactInfo = await ContactInfo.findOne().lean();

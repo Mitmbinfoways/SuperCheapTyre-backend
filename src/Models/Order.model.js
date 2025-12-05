@@ -57,6 +57,7 @@ const orderSchema = new mongoose.Schema(
     serviceItems: { type: [orderServiceSchema] },
     subtotal: { type: Number },
     tax: { type: Number, default: 0 },
+    taxAmount: { type: Number, default: 0 },
     total: { type: Number },
     appointment: { type: appointmentSchema },
     customer: { type: customerSchema },
