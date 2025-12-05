@@ -18,6 +18,7 @@ const GoogleRoute = require("./Routes/GoogleRoute.route");
 const BannerRoute = require("./Routes/Banner.route");
 const ContactInfoRoute = require("./Routes/ContactInfo.route");
 const ServiceRoute = require("./Routes/Service.route");
+const TaxRoute = require("./Routes/Tax.route");
 
 app.use(
   cors({
@@ -48,5 +49,5 @@ app.use("/api/v1/google", GoogleRoute);
 app.use("/api/v1/banner", BannerRoute);
 app.use("/api/v1/contact-info", ContactInfoRoute);
 app.use("/api/v1/service", ServiceRoute);
-
+app.use("/api/v1/tax", TaxRoute);
 module.exports = app;
