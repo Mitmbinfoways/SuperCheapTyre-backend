@@ -108,6 +108,7 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
     serviceItems = [],
     subtotal = 0,
     total = 0,
+
     appointment = {},
     customer = {},
     payment = [],
@@ -187,6 +188,13 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
 
   const formattedSubtotal = Number(subtotal).toFixed(2);
   const formattedTotal = Number(total).toFixed(2);
+  const taxAmountVal = Number(order.taxAmount || 0);
+  const taxAmount = taxAmountVal.toFixed(2);
+  const tax = order.tax;
+  const taxName = order.taxName || "Tax";
+  const paidAmount = Number(paymentInfo.amount || 0);
+  const unpaidAmount = (Number(subtotal) - paidAmount).toFixed(2);
+
 
   // Format date properly
   const formatDate = (dateStr) => {
@@ -331,18 +339,34 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
               <tr>
                 <td style="padding: 0 30px 30px;">
                   <table width="100%" cellpadding="8" cellspacing="0" style="border: 1px solid #e0e0e0; border-radius: 4px; background-color: #f9f9f9;">
-                    <tr>
-                      <td style="text-align: right; color: #666;"><strong>Subtotal:</strong></td>
-                      <td style="text-align: right; color: #333;">AU$${formattedSubtotal}</td>
-                    </tr>
-                    <tr>
-                      <td style="text-align: right; color: #666; border-top: 2px solid #4CAF50; padding-top: 10px;">
-                        <strong>Total:</strong>
-                      </td>
-                      <td style="text-align: right; color: #4CAF50; font-size: 18px; font-weight: bold; border-top: 2px solid #4CAF50; padding-top: 10px;">
-                        AU$${formattedTotal}
-                      </td>
-                    </tr>
+                   <tr>
+        <td style="text-align: right; color: #666;"><strong>Subtotal:</strong></td>
+        <td style="text-align: right; color: #333;">AU$${(Number(subtotal) - taxAmountVal).toFixed(2)}</td>
+      </tr>
+
+      <tr>
+        <td style="text-align: right; color: #666;"><strong>${taxName}:</strong></td>
+        <td style="text-align: right; color: #333;">${tax}%</td>
+      </tr>
+
+      <tr>
+        <td style="text-align: right; color: #666;"><strong>Paid Amount:</strong></td>
+        <td style="text-align: right; color: #10b981; font-weight: bold;">AU$${paidAmount.toFixed(2)}</td>
+      </tr>
+
+      <tr>
+        <td style="text-align: right; color: #666;"><strong>Balance Due:</strong></td>
+        <td style="text-align: right; color: #ef4444; font-weight: bold;">AU$${unpaidAmount}</td>
+      </tr>
+
+      <tr>
+        <td style="text-align: right; color: #666; border-top: 2px solid #4CAF50; padding-top: 10px;">
+          <strong>Total:</strong>
+        </td>
+        <td style="text-align: right; color: #4CAF50; font-size: 18px; font-weight: bold; border-top: 2px solid #4CAF50; padding-top: 10px;">
+          AU$${formattedSubtotal}
+        </td>
+      </tr>
                   </table>
                 </td>
               </tr>
@@ -354,7 +378,6 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
                   <p style="margin: 0; color: #64748b; font-size: 8.5px;">If you have any questions about this invoice, please contact us</p>
                 </td>
               </tr>
-
             </table>
           </td>
         </tr>
@@ -565,6 +588,7 @@ const createOrder = async (req, res) => {
       serviceItems: enrichedServiceItems,
       subtotal,
       total,
+      taxName: taxDoc.name,
       tax: taxDoc.percentage,
       taxAmount,
       appointment: {
@@ -1203,6 +1227,7 @@ const DownloadPDF = async (req, res) => {
 
     if (order.tax) summaryBoxHeight += 22;
 
+
     // Adjust rightBoxHeight to fit content
     const finalRightBoxHeight = Math.max(rightBoxHeight, summaryBoxHeight + 20);
 
@@ -1233,26 +1258,25 @@ const DownloadPDF = async (req, res) => {
     doc
       .fillColor(textPrimary)
       .font("Helvetica-Bold")
-      .text(`$${order.subtotal.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
+      .text(`$${order.subtotal.toFixed(2) - order.taxAmount.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
         width: summaryBoxWidth - 40,
         align: "right",
       });
 
-    if (order.tax) {
-      summaryYPos += 22;
-      doc
-        .fontSize(10)
-        .fillColor(textSecondary)
-        .font("Helvetica")
-        .text("Tax:", summaryBoxX + 20, summaryYPos);
-      doc
-        .fillColor(textPrimary)
-        .font("Helvetica-Bold")
-        .text(`$${order.tax.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
-          width: summaryBoxWidth - 40,
-          align: "right",
-        });
-    }
+    summaryYPos += 22;
+    doc
+      .fontSize(10)
+      .fillColor(textSecondary)
+      .font("Helvetica")
+      .text(order.taxName ? `${order.taxName}` : "Tax:", summaryBoxX + 20, summaryYPos);
+    doc
+      .fillColor(textPrimary)
+      .font("Helvetica-Bold")
+      .text(`${order.tax}%`, summaryBoxX + 20, summaryYPos, {
+        width: summaryBoxWidth - 40,
+        align: "right",
+      });
+
 
     // 2. Payment Fields
     if (isFirstPayment) {
@@ -1264,7 +1288,7 @@ const DownloadPDF = async (req, res) => {
         .font("Helvetica")
         .text("Paid Amount:", summaryBoxX + 20, summaryYPos);
       doc
-        .fillColor(textPrimary)
+        .fillColor(successColor)
         .font("Helvetica-Bold")
         .text(`$${currentPaidAmount.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
           width: summaryBoxWidth - 40,
@@ -1276,9 +1300,9 @@ const DownloadPDF = async (req, res) => {
         .fontSize(10)
         .fillColor(textSecondary)
         .font("Helvetica")
-        .text("Unpaid Amount:", summaryBoxX + 20, summaryYPos);
+        .text("Balance Due:", summaryBoxX + 20, summaryYPos);
       doc
-        .fillColor(textPrimary)
+        .fillColor(dangerColor)
         .font("Helvetica-Bold")
         .text(`$${unpaidAmount.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
           width: summaryBoxWidth - 40,
@@ -1308,7 +1332,7 @@ const DownloadPDF = async (req, res) => {
         .font("Helvetica")
         .text("Paid Amount:", summaryBoxX + 20, summaryYPos);
       doc
-        .fillColor(textPrimary)
+        .fillColor(successColor)
         .font("Helvetica-Bold")
         .text(`$${currentPaidAmount.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
           width: summaryBoxWidth - 40,
@@ -1322,7 +1346,7 @@ const DownloadPDF = async (req, res) => {
         .font("Helvetica")
         .text("Unpaid Amount:", summaryBoxX + 20, summaryYPos);
       doc
-        .fillColor(textPrimary)
+        .fillColor(dangerColor)
         .font("Helvetica-Bold")
         .text(`$${unpaidAmount.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
           width: summaryBoxWidth - 40,
@@ -1364,8 +1388,8 @@ const DownloadPDF = async (req, res) => {
 
     doc
       .fontSize(16)
-      .fillColor(accentColor)
-      .text(`$${totalValue.toFixed(2)}`, summaryBoxX + 24, summaryYPos, {
+      .fillColor(textPrimary)
+      .text(`$${order.subtotal.toFixed(2)}`, summaryBoxX + 24, summaryYPos, {
         width: summaryBoxWidth - 48,
         align: "right",
       });
