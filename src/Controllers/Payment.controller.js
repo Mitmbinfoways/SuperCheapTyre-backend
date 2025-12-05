@@ -4,8 +4,6 @@ const payment = async (req, res) => {
   try {
     const { Product } = req.body;
 
-    console.log("run");
-
     if (!Product || !Array.isArray(Product) || Product.length === 0) {
       return res.status(400).json({ error: "Invalid product data" });
     }

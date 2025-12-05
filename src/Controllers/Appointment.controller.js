@@ -4,6 +4,8 @@ const Appointment = require("../Models/Appointment.model");
 const TimeSlot = require("../Models/TimeSlot.model");
 const Technician = require("../Models/Technician.model");
 const sendMail = require("../Utils/Nodemailer");
+const Order = require("../Models/Order.model");
+
 
 
 const generateAdminAppointmentEmail = (appointment, slotInfo) => {
@@ -275,32 +277,32 @@ const createAppointment = async (req, res) => {
     }
 
     // Normalize date - handle both string formats and Date objects
-    let appointmentDate;
-    if (typeof date === "string") {
-      // Handle different date formats
-      if (date.includes("GMT") || date.includes("UTC")) {
-        // Already a full date string
-        appointmentDate = new Date(date);
-      } else if (date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        // ISO date format (YYYY-MM-DD)
-        appointmentDate = new Date(date);
-      } else {
-        // Try to parse other formats
-        appointmentDate = new Date(date);
-      }
-    } else if (date instanceof Date) {
-      appointmentDate = date;
-    } else {
-      return res.status(400).json(new ApiError(400, "Invalid date format"));
-    }
+    // let appointmentDate;
+    // if (typeof date === "string") {
+    //   // Handle different date formats
+    //   if (date.includes("GMT") || date.includes("UTC")) {
+    //     // Already a full date string
+    //     appointmentDate = new Date(date);
+    //   } else if (date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    //     // ISO date format (YYYY-MM-DD)
+    //     appointmentDate = new Date(date);
+    //   } else {
+    //     // Try to parse other formats
+    //     appointmentDate = new Date(date);
+    //   }
+    // } else if (date instanceof Date) {
+    //   appointmentDate = date;
+    // } else {
+    //   return res.status(400).json(new ApiError(400, "Invalid date format"));
+    // }
 
     // Validate that we have a valid date
-    if (isNaN(appointmentDate.getTime())) {
-      return res.status(400).json(new ApiError(400, "Invalid date value"));
-    }
+    // if (isNaN(appointmentDate.getTime())) {
+    //   return res.status(400).json(new ApiError(400, "Invalid date value"));
+    // }
 
     // Set to start of day to avoid timezone issues
-    appointmentDate.setHours(0, 0, 0, 0);
+    // appointmentDate.setHours(0, 0, 0, 0);
 
     // Get time slot configuration
     let timeSlotConfig;
@@ -330,34 +332,35 @@ const createAppointment = async (req, res) => {
         .json(new ApiError(400, "Invalid or break time slot selected"));
     }
 
+    
     // Check if slot is already booked
     const already = await Appointment.findOne({
-      date: appointmentDate,
+      date: date,
       slotId: validSlot.slotId,
       status: { $in: ["reserved", "confirmed"] },
       isDelete: false,
     });
-
+    
     if (already) {
       return res
-        .status(400)
-        .json(new ApiError(400, "This slot is already booked"));
+      .status(400)
+      .json(new ApiError(400, "This slot is already booked"));
     }
-
+    
     // Create appointment
     const created = await Appointment.create({
       firstname,
       lastname,
       phone,
       email,
-      date: appointmentDate,
+      date: date,
       slotId: validSlot.slotId,
       timeSlotId: timeSlotConfig._id,
       notes,
       Employee: Employee || "",
       status: status || "booked",
     });
-
+    
     try {
       const slotInfo = {
         startTime: validSlot.startTime,
@@ -492,8 +495,6 @@ const updateAppointment = async (req, res) => {
     return res.status(500).json(new ApiError(500, "Internal Server Error"));
   }
 };
-
-const Order = require("../Models/Order.model");
 
 // ... existing code ...
 
