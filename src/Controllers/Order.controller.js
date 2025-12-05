@@ -108,7 +108,6 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
     serviceItems = [],
     subtotal = 0,
     total = 0,
-
     appointment = {},
     customer = {},
     payment = [],
@@ -199,13 +198,7 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
   // Format date properly
   const formatDate = (dateStr) => {
     if (!dateStr) return "";
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("en-GB", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+    return dayjs(dateStr).format("dddd, D MMMM YYYY");
   };
 
   const dateObj = new Date(order.createdAt || new Date());

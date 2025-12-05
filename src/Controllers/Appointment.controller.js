@@ -6,8 +6,6 @@ const Technician = require("../Models/Technician.model");
 const sendMail = require("../Utils/Nodemailer");
 const Order = require("../Models/Order.model");
 
-
-
 const generateAdminAppointmentEmail = (appointment, slotInfo) => {
   return `
     <h2>New Appointment Created</h2>
@@ -494,7 +492,6 @@ const updateAppointment = async (req, res) => {
     return res.status(500).json(new ApiError(500, "Internal Server Error"));
   }
 };
-
 // ... existing code ...
 
 const DeleteAppointment = async (req, res) => {
