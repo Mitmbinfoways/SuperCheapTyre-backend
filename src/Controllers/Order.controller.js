@@ -363,7 +363,7 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
         <td style="text-align: right; color: #666; border-top: 2px solid #4CAF50; padding-top: 10px;">
           <strong>Total:</strong>
         </td>
-        <td style="text-align: right; color: #4CAF50; font-size: 18px; font-weight: bold; border-top: 2px solid #4CAF50; padding-top: 10px;">
+        <td style="text-align: right; color: #333333; font-size: 18px; font-weight: bold; border-top: 2px solid #4CAF50; padding-top: 10px;">
           AU$${formattedSubtotal}
         </td>
       </tr>
@@ -1258,7 +1258,7 @@ const DownloadPDF = async (req, res) => {
     doc
       .fillColor(textPrimary)
       .font("Helvetica-Bold")
-      .text(`$${order.subtotal.toFixed(2) - order.taxAmount.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
+      .text(`AU$${order.subtotal.toFixed(2) - order.taxAmount.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
         width: summaryBoxWidth - 40,
         align: "right",
       });
@@ -1290,7 +1290,7 @@ const DownloadPDF = async (req, res) => {
       doc
         .fillColor(successColor)
         .font("Helvetica-Bold")
-        .text(`$${currentPaidAmount.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
+        .text(`AU$${currentPaidAmount.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
           width: summaryBoxWidth - 40,
           align: "right",
         });
@@ -1304,7 +1304,7 @@ const DownloadPDF = async (req, res) => {
       doc
         .fillColor(dangerColor)
         .font("Helvetica-Bold")
-        .text(`$${unpaidAmount.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
+        .text(`AU$${unpaidAmount.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
           width: summaryBoxWidth - 40,
           align: "right",
         });
@@ -1320,7 +1320,7 @@ const DownloadPDF = async (req, res) => {
       doc
         .fillColor(textPrimary)
         .font("Helvetica-Bold")
-        .text(`$${previousPaidAmount.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
+        .text(`AU$${previousPaidAmount.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
           width: summaryBoxWidth - 40,
           align: "right",
         });
@@ -1334,7 +1334,7 @@ const DownloadPDF = async (req, res) => {
       doc
         .fillColor(successColor)
         .font("Helvetica-Bold")
-        .text(`$${currentPaidAmount.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
+        .text(`AU$${currentPaidAmount.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
           width: summaryBoxWidth - 40,
           align: "right",
         });
@@ -1348,7 +1348,7 @@ const DownloadPDF = async (req, res) => {
       doc
         .fillColor(dangerColor)
         .font("Helvetica-Bold")
-        .text(`$${unpaidAmount.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
+        .text(`AU$${unpaidAmount.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
           width: summaryBoxWidth - 40,
           align: "right",
         });
@@ -1389,7 +1389,7 @@ const DownloadPDF = async (req, res) => {
     doc
       .fontSize(16)
       .fillColor(textPrimary)
-      .text(`$${order.subtotal.toFixed(2)}`, summaryBoxX + 24, summaryYPos, {
+      .text(`AU$${order.subtotal.toFixed(2)}`, summaryBoxX + 24, summaryYPos, {
         width: summaryBoxWidth - 48,
         align: "right",
       });
