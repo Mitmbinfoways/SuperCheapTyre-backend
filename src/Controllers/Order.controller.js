@@ -856,12 +856,7 @@ const DownloadPDF = async (req, res) => {
 
       // Date + Time
       const formattedAppointmentDate = order.appointment.date
-        ? new Date(order.appointment.date).toLocaleDateString("en-US", {
-          weekday: "short",
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        })
+        ? dayjs(order.appointment.date).format("ddd, MMM D, YYYY")
         : "";
 
       doc
