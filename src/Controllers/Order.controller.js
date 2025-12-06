@@ -205,11 +205,7 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
   const dateStr = dateObj.toISOString().slice(0, 10).replace(/-/g, "");
   const idSuffix = order._id?.toString()?.slice(-6)?.toUpperCase() || "000000";
   const invoiceNum = `INV-${dateStr}-${idSuffix}`;
-  const invoiceDate = dateObj.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  const invoiceDate = dayjs(dateObj).format("MMM D, YYYY");
 
   return `
     <!DOCTYPE html>
