@@ -339,7 +339,7 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
 
       <tr>
         <td style="text-align: right; color: #666;"><strong>${taxName}:</strong></td>
-        <td style="text-align: right; color: #333;">${tax}%</td>
+        <td style="text-align: right; color: #333;">AU$${taxAmount}</td>
       </tr>
 
       <tr>
@@ -735,14 +735,7 @@ const DownloadPDF = async (req, res) => {
         { align: "right", width: 230 }
       );
 
-      const formattedDate = new Date(order.createdAt).toLocaleDateString(
-        "en-US",
-        {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        }
-      );
+      const formattedDate = dayjs(order.createdAt).format("MMM D, YYYY");
       doc.text(`Date: ${formattedDate}`, 320, 68, {
         align: "right",
         width: 230,
@@ -751,7 +744,7 @@ const DownloadPDF = async (req, res) => {
 
     // Helper function to render footer
     const renderFooter = () => {
-      const footerY = doc.page.height - 90; // Position from bottom
+      const footerY = doc.page.height - 120; // Position from bottom
 
       doc
         .strokeColor(borderColor)
@@ -761,23 +754,23 @@ const DownloadPDF = async (req, res) => {
         .stroke();
 
       doc
-        .fontSize(11)
+        .fontSize(6)
         .fillColor(textPrimary)
-        .font("Helvetica-Bold")
-        .text("Thank you for your business!", 40, footerY + 18, {
-          align: "center",
-          width: 515,
-        });
-
-      doc
-        .fontSize(8.5)
-        .fillColor(textSecondary)
         .font("Helvetica")
         .text(
-          "If you have any questions about this invoice, please contact us",
+          `NO RETURN NO REFUND POLICY.
+12 Months Pro-Rata manufacturing faults Warranty subjected to Wheel Alignment and Tyre Rotation every 10,000 KM.
+# Must Keep Alignment Report.
+Cheques and Card payment over the phone not Accepted.
+SUPERCHEAP TYRES DANDENONG IS NOT RESPONSIBLE FOR ANY ALTERNATIVE TYRE SIZES SELECTED AND FITTED TO CUSTOMER'S CAR.
+FLAT DRIVEN TYRES NOT COVERED UNDER WARRANTY.`,
           40,
-          footerY + 34,
-          { align: "center", width: 515 }
+          footerY + 15,
+          {
+            align: "left",
+            width: 515,
+            lineGap: 4,
+          }
         );
     };
 
@@ -870,7 +863,7 @@ const DownloadPDF = async (req, res) => {
     }
 
     // ==================== ITEMS TABLE ====================
-    const pageHeight = doc.page.height - 120; // Reserve space for footer
+    const pageHeight = doc.page.height - 210; // Reserve space for footer
     const tableHeaderHeight = 28;
     const tableTitleHeight = 28;
     const headerHeight = 140;
@@ -942,7 +935,7 @@ const DownloadPDF = async (req, res) => {
       const rowHeight = hasDetails ? 48 : 35;
 
       if (yPos + rowHeight > pageHeight) {
-        renderFooter();
+        // renderFooter();
         doc.addPage();
         yPos = startYAfterHeader;
         rowIndex = 0;
@@ -1048,17 +1041,18 @@ const DownloadPDF = async (req, res) => {
       isPaymentPending = order.payment.some((p) => p.status === "partial");
     }
 
-    const leftBoxHeight = 85;
+    const leftBoxHeight = 38;
     const rightBoxHeight = isPaymentPending ? 145 : 100;
     const maxBoxHeight = Math.max(leftBoxHeight, rightBoxHeight);
     const summaryAndFooterHeight = maxBoxHeight + 150;
 
     // Alternative approach: Move summary box to second page if there are 4 or more products
     // or if items table likely forced a new page
+    // Relaxed check: Allow drawing closer to footer (limit is doc.page.height - 130)
     if (
-      yPos + maxBoxHeight + 20 > pageHeight
+      yPos + maxBoxHeight + 20 > doc.page.height - 130
     ) {
-      renderFooter(); // Add footer before new page
+      // renderFooter(); // Add footer before new page
       doc.addPage();
       yPos = startYAfterHeader;
       renderPageHeader();
@@ -1087,7 +1081,7 @@ const DownloadPDF = async (req, res) => {
         .fontSize(9)
         .fillColor(textSecondary)
         .font("Helvetica")
-        .text("Payment Status:", leftBoxX + 18, paymentBoxY + 18);
+        .text("Payment Status:", leftBoxX + 18, paymentBoxY + 10);
 
       const paymentStatusColor =
         paymentToDisplay.status === "full"
@@ -1116,7 +1110,7 @@ const DownloadPDF = async (req, res) => {
         .text(
           statusText,
           leftBoxX + 18,
-          paymentBoxY + 36
+          paymentBoxY + 24
         );
 
     } else if (order.payment) {
@@ -1142,21 +1136,18 @@ const DownloadPDF = async (req, res) => {
         .fontSize(9)
         .fillColor(textSecondary)
         .font("Helvetica")
-        .text("Payment Status:", leftBoxX + 18, paymentBoxY + 18);
+        .text("Payment Status:", leftBoxX + 18, paymentBoxY + 10);
 
       doc
         .fontSize(10)
         .fillColor(dangerColor)
         .font("Helvetica-Bold")
-        .text("N/A", leftBoxX + 18, paymentBoxY + 36);
+        .text("N/A", leftBoxX + 18, paymentBoxY + 24);
     }
 
     // Right side - Summary Box
     const summaryBoxX = 305;
     const summaryBoxWidth = 250;
-
-    // Calculate dynamic height based on fields to show
-    let summaryBoxHeight = 100; // Base height for Subtotal + Total
 
     // Logic to determine payment amounts
     let previousPaidAmount = 0;
@@ -1200,24 +1191,18 @@ const DownloadPDF = async (req, res) => {
 
     const unpaidAmount = Math.max(0, order.subtotal - totalPaidSoFar);
 
-
-    // Determine fields to show
-    // Always show Subtotal
-    // If first payment: Paid Amount, Unpaid Amount
-    // If subsequent payment: Previous Paid Amount, Paid Amount, Unpaid Amount
-    // Always show Total
+    // Calculate dynamic height based on fields to show
+    // Structure: Top Pad(18) + Subtotal(22) + Tax(22) + Pmt(44/66) + Div(24) + Gap(14) + Box(32) + Bot Pad(6)
+    let summaryBoxHeight = 18 + 22 + 22 + 24 + 14 + 32 + 6;
 
     if (isFirstPayment) {
-      summaryBoxHeight += 44; // Paid Amount + Unpaid Amount
+      summaryBoxHeight += 44;
     } else {
-      summaryBoxHeight += 66; // Previous Paid + Paid Amount + Unpaid Amount
+      summaryBoxHeight += 66;
     }
 
-    if (order.tax) summaryBoxHeight += 22;
-
-
-    // Adjust rightBoxHeight to fit content
-    const finalRightBoxHeight = Math.max(rightBoxHeight, summaryBoxHeight + 20);
+    // Use precise height
+    const finalRightBoxHeight = summaryBoxHeight;
 
     doc.opacity(0.08);
     doc
@@ -1260,7 +1245,7 @@ const DownloadPDF = async (req, res) => {
     doc
       .fillColor(textPrimary)
       .font("Helvetica-Bold")
-      .text(`${order.tax}%`, summaryBoxX + 20, summaryYPos, {
+      .text(`AU$${order.taxAmount.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
         width: summaryBoxWidth - 40,
         align: "right",
       });
@@ -1365,7 +1350,6 @@ const DownloadPDF = async (req, res) => {
     doc.opacity(1);
 
     let totalLabel = "TOTAL:";
-    // Always show the Total Paid So Far as the "TOTAL" at the bottom of the receipt
     let totalValue = totalPaidSoFar;
 
     doc
