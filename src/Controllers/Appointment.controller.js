@@ -410,21 +410,23 @@ const updateAppointment = async (req, res) => {
     // If updating date or slot, validate
     let appointmentDate = appointment.date;
     if (date) {
-      let parsedDate;
-
       if (typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
         const [y, m, d] = date.split("-");
-        parsedDate = new Date(Number(y), Number(m) - 1, Number(d));
+        const parsedDate = new Date(Number(y), Number(m) - 1, Number(d));
+        if (isNaN(parsedDate.getTime())) {
+          return res.status(400).json(new ApiError(400, "Invalid date format"));
+        }
+        appointmentDate = date;
       } else {
-        parsedDate = new Date(date);
+        const parsedDate = new Date(date);
+        if (isNaN(parsedDate.getTime())) {
+          return res.status(400).json(new ApiError(400, "Invalid date format"));
+        }
+        const year = parsedDate.getFullYear();
+        const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
+        const day = String(parsedDate.getDate()).padStart(2, "0");
+        appointmentDate = `${year}-${month}-${day}`;
       }
-
-      if (isNaN(parsedDate.getTime())) {
-        return res.status(400).json(new ApiError(400, "Invalid date format"));
-      }
-
-      parsedDate.setHours(0, 0, 0, 0);
-      appointmentDate = parsedDate;
     }
 
     let updatedSlotId = appointment.slotId;
