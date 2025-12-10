@@ -1,7 +1,7 @@
 const nodemailer = require("nodemailer");
 const ApiError = require("./ApiError");
 
-const sendMail = async (to, subject, htmlContent) => {
+const sendMail = async (to, subject, htmlContent, attachments = []) => {
   try {
     const transporter = nodemailer.createTransport({
       service: "Gmail",
@@ -12,10 +12,11 @@ const sendMail = async (to, subject, htmlContent) => {
     });
 
     const mailOptions = {
-      from: `"SuperCheapTyre" <${process.env.SMTP_USER}>`,
+      from: `"Supercheap Tyres Dandenong" <${process.env.SMTP_USER}>`,
       to,
       subject,
       html: htmlContent,
+      attachments,
     };
 
     await transporter.sendMail(mailOptions);
