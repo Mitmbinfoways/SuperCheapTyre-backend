@@ -363,10 +363,7 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
               <!-- Footer -->
               <tr>
                 <td style="padding: 30px; text-align: center; border-top: 1.5px solid #e2e8f0;">
-                  <p style="margin: 0 0 10px; color: #1e293b; font-size: 11px; font-weight: bold;">Thank you for your business!</p>
-                  <p style="margin: 0; color: #64748b; font-size: 8.5px;">If you have any questions about this invoice, please contact us</p>
-
-                  <div style="margin-top: 20px; border-top: 1px solid #e0e0e0; padding-top: 15px; text-align: left;">
+                  <div style="margin-bottom: 20px; border-bottom: 1px solid #e0e0e0; padding-bottom: 15px; text-align: left;">
                     <p style="margin: 0 0 5px; color: #333; font-size: 10px; font-weight: bold;">NO RETURN NO REFUND POLICY.</p>
                     <p style="margin: 0 0 5px; color: #555; font-size: 9px;">12 Months Pro-Rata manufacturing faults Warranty subjected to Wheel Alignment and Tyre Rotation every 10,000 KM.</p>
                     <p style="margin: 0 0 5px; color: #555; font-size: 9px;"># Must Keep Alignment Report.</p>
@@ -374,6 +371,9 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
                     <p style="margin: 0 0 5px; color: #555; font-size: 9px;">SUPERCHEAP TYRES DANDENONG IS NOT RESPONSIBLE FOR ANY ALTERNATIVE TYRE SIZES SELECTED AND FITTED TO CUSTOMER'S CAR.</p>
                     <p style="margin: 0; color: #555; font-size: 9px;">FLAT DRIVEN TYRES NOT COVERED UNDER WARRANTY</p>
                   </div>
+
+                  <p style="margin: 0 0 10px; color: #1e293b; font-size: 11px; font-weight: bold;">Thank you for your business!</p>
+                  <p style="margin: 0; color: #64748b; font-size: 8.5px;">If you have any questions about this invoice, please contact us</p>
                 </td>
               </tr>
             </table>
@@ -719,17 +719,16 @@ const DownloadPDF = async (req, res) => {
       doc.text(
         contactInfo?.address || "114 Hammond Rd, Dandenong South VIC, 3175",
         logoX,
-        logoBottom + addressSpacing + 14
+        logoBottom + addressSpacing + 14,
+        { width: 250 }
       );
       doc.text(
         `Phone: ${contactInfo?.phone || "(03) 9793 6190"}`,
-        logoX,
-        logoBottom + addressSpacing + 25
+        logoX
       );
       doc.text(
         `Email: ${contactInfo?.email || "goodwillmotors@hotmail.com"}`,
-        logoX,
-        logoBottom + addressSpacing + 36
+        logoX
       );
 
       doc
