@@ -2,7 +2,7 @@ const ApiResponse = require("../Utils/ApiResponse");
 const ApiError = require("../Utils/ApiError");
 const MasterFilter = require("../Models/MasterFilter.model");
 
-const Product = require("../models/Product.model");
+const Product = require("../Models/Product.model");
 
 const createMasterFilter = async (req, res) => {
   try {
