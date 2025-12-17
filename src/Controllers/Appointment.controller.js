@@ -431,6 +431,7 @@ const updateAppointment = async (req, res) => {
 
     let updatedSlotId = appointment.slotId;
     let updatedTimeSlotId = appointment.timeSlotId;
+    let newSlotDetails = null;
 
     if (slotId) {
       const timeSlotConfig = timeSlotId
@@ -470,6 +471,7 @@ const updateAppointment = async (req, res) => {
 
       updatedSlotId = validSlot.slotId;
       updatedTimeSlotId = timeSlotConfig._id;
+      newSlotDetails = validSlot;
     }
 
     // Update appointment
@@ -485,6 +487,26 @@ const updateAppointment = async (req, res) => {
     appointment.Employee = Employee ?? appointment.Employee;
 
     const updated = await appointment.save();
+
+    // Sync updates with Order
+    const orderUpdate = {
+      "appointment.firstName": updated.firstname,
+      "appointment.lastName": updated.lastname,
+      "appointment.phone": updated.phone,
+      "appointment.email": updated.email,
+      "appointment.date": updated.date,
+      "appointment.slotId": updated.slotId,
+      "appointment.timeSlotId": updated.timeSlotId,
+    };
+
+    if (newSlotDetails) {
+      orderUpdate["appointment.time"] = newSlotDetails.startTime + "-" + newSlotDetails.endTime;
+    }
+
+    await Order.updateMany(
+      { "appointment.id": id },
+      { $set: orderUpdate }
+    );
 
     return res
       .status(200)

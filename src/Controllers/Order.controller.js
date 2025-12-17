@@ -579,15 +579,15 @@ const createOrder = async (req, res) => {
     });
 
     const taxDoc = await Tax.findOne().lean();
-    const taxAmount = subtotal * (taxDoc.percentage / 100);
+    const taxAmount = subtotal * (taxDoc.percentage || 10 / 100);
 
     const order = await Order.create({
       items: enrichedItems,
       serviceItems: enrichedServiceItems,
       subtotal,
       total,
-      taxName: taxDoc.name,
-      tax: taxDoc.percentage,
+      taxName: taxDoc.name || "GST",
+      tax: taxDoc.percentage || 10,
       taxAmount,
       appointment: {
         id: appointment._id,
@@ -603,8 +603,6 @@ const createOrder = async (req, res) => {
       customer: customerData,
       payment: paymentData,
     });
-
-    console.log(order)
 
     try {
       const contactInfo = await ContactInfo.findOne().lean();
