@@ -1,6 +1,6 @@
 const ApiResponse = require("../Utils/ApiResponse");
 const ApiError = require("../Utils/ApiError");
-const Product = require("../Models/Product.model");
+const Product = require("../models/Product.model");
 const Appointment = require("../Models/Appointment.model");
 const Query = require("../Models/Contact.model");
 const Order = require("../Models/Order.model");

@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const Order = require("../Models/Order.model");
 const PDFDocument = require("pdfkit");
-const Product = require("../Models/Product.model");
+const Product = require("../models/Product.model");
 const Appointment = require("../Models/Appointment.model");
 const TimeSlot = require("../Models/TimeSlot.model");
 const Service = require("../Models/Service.model");
@@ -579,15 +579,16 @@ const createOrder = async (req, res) => {
     });
 
     const taxDoc = await Tax.findOne().lean();
-    const taxAmount = subtotal * (taxDoc.percentage || 10 / 100);
+    const taxPercentage = taxDoc?.percentage ?? 10;
+    const taxAmount = subtotal * (taxPercentage / 100);
 
     const order = await Order.create({
       items: enrichedItems,
       serviceItems: enrichedServiceItems,
       subtotal,
       total,
-      taxName: taxDoc.name || "GST",
-      tax: taxDoc.percentage || 10,
+      taxName: taxDoc.name,
+      tax: taxPercentage,
       taxAmount,
       appointment: {
         id: appointment._id,

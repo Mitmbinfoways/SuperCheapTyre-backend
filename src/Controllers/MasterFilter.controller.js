@@ -2,6 +2,8 @@ const ApiResponse = require("../Utils/ApiResponse");
 const ApiError = require("../Utils/ApiError");
 const MasterFilter = require("../Models/MasterFilter.model");
 
+const Product = require("../models/Product.model");
+
 const createMasterFilter = async (req, res) => {
   try {
     const { category, subCategory, values } = req.body;
@@ -41,7 +43,7 @@ const getAllMasterFilters = async (req, res) => {
 
     if (search) {
       query.$or = [
-        { category: { $regex: search, $options: "i" } },        
+        { category: { $regex: search, $options: "i" } },
         { subCategory: { $regex: search, $options: "i" } },
         { values: { $regex: search, $options: "i" } },
       ];
@@ -69,11 +71,11 @@ const getAllMasterFilters = async (req, res) => {
           pagination:
             page && limit
               ? {
-                  total,
-                  page: parseInt(page),
-                  limit: parseInt(limit),
-                  totalPages: Math.ceil(total / limit),
-                }
+                total,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                totalPages: Math.ceil(total / limit),
+              }
               : null,
         },
         "Master filters fetched successfully"
@@ -121,6 +123,32 @@ const updateMasterFilter = async (req, res) => {
 
     if (!masterFilter) {
       return res.status(404).json(new ApiError(404, "Master filter not found"));
+    }
+
+    // Trigger SKU update for affected products
+    // We search for products that have this MasterFilter ID in ANY of their specification fields
+    const id = req.params.id;
+    const affectedProducts = await Product.find({
+      $or: [
+        // Tyre Specs
+        { "tyreSpecifications.pattern": id },
+        { "tyreSpecifications.width": id },
+        { "tyreSpecifications.profile": id },
+        { "tyreSpecifications.diameter": id },
+        { "tyreSpecifications.loadRating": id },
+        { "tyreSpecifications.speedRating": id },
+        // Wheel Specs
+        { "wheelSpecifications.size": id },
+        { "wheelSpecifications.color": id },
+        { "wheelSpecifications.diameter": id },
+        { "wheelSpecifications.fitments": id },
+        { "wheelSpecifications.staggeredOptions": id },
+      ]
+    });
+
+    // Save each product to trigger the pre-save hook which regenerates the SKU
+    if (affectedProducts.length > 0) {
+      await Promise.all(affectedProducts.map(p => p.save()));
     }
 
     return res
