@@ -370,6 +370,7 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
                     <p style="margin: 0 0 5px; color: #555; font-size: 9px;">Cheques and Card payment over the phone not Accepted.</p>
                     <p style="margin: 0 0 5px; color: #555; font-size: 9px;">SUPERCHEAP TYRES DANDENONG IS NOT RESPONSIBLE FOR ANY ALTERNATIVE TYRE SIZES SELECTED AND FITTED TO CUSTOMER'S CAR.</p>
                     <p style="margin: 0; color: #555; font-size: 9px;">FLAT DRIVEN TYRES NOT COVERED UNDER WARRANTY</p>
+                    <p style="margin: 0; color: #555; font-size: 9px;">Note: Wait time may vary according to workshop load.</p>
                   </div>
 
                   <p style="margin: 0 0 10px; color: #1e293b; font-size: 11px; font-weight: bold;">Thank you for your business!</p>
@@ -776,7 +777,8 @@ const DownloadPDF = async (req, res) => {
 # Must Keep Alignment Report.
 Cheques and Card payment over the phone not Accepted.
 SUPERCHEAP TYRES DANDENONG IS NOT RESPONSIBLE FOR ANY ALTERNATIVE TYRE SIZES SELECTED AND FITTED TO CUSTOMER'S CAR.
-FLAT DRIVEN TYRES NOT COVERED UNDER WARRANTY`,
+FLAT DRIVEN TYRES NOT COVERED UNDER WARRANTY
+Note: Wait time may vary according to workshop load.`,
           40,
           footerY + 15,
           {
