@@ -19,6 +19,9 @@ const BannerRoute = require("./Routes/Banner.route");
 const ContactInfoRoute = require("./Routes/ContactInfo.route");
 const ServiceRoute = require("./Routes/Service.route");
 const TaxRoute = require("./Routes/Tax.route");
+const LogRoute = require("./Routes/Log.route");
+const actionLogger = require("./Utils/actionLogger");
+
 
 app.use(
   cors({
@@ -28,6 +31,8 @@ app.use(
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "..", "public")));
+app.use(actionLogger);
+
 
 app.get("/", (req, res) => {
   res.send("Hello World!");
@@ -50,4 +55,6 @@ app.use("/api/v1/banner", BannerRoute);
 app.use("/api/v1/contact-info", ContactInfoRoute);
 app.use("/api/v1/service", ServiceRoute);
 app.use("/api/v1/tax", TaxRoute);
+app.use("/api/v1/logs", LogRoute);
+
 module.exports = app;
