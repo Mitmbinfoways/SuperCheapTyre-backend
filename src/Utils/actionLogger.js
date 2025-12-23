@@ -8,7 +8,7 @@ const actionLogger = async (req, res, next) => {
 
     // 1. Check Origin/Referer for "Admin" vs "User" context (if unauthenticated)
     const origin = req.headers.origin || req.headers.referer || "";
-    if (origin.includes(":3000")) {
+    if (origin.includes(":3000") || origin.includes("admin")) {
         user = "Admin";
     } else if (origin.includes(":4173") || origin.includes("frontend")) {
         user = "Frontend User";
