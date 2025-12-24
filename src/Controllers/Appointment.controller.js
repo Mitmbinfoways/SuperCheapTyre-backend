@@ -231,14 +231,17 @@ const getAvailableSlots = async (req, res) => {
       status: { $in: ["reserved", "confirmed", "booked"] },
     });
 
-    const bookedSlotIds = bookedAppointments.map((appt) => appt.slotId); // string
+    const slotCounts = {};
+    bookedAppointments.forEach((appt) => {
+      slotCounts[appt.slotId] = (slotCounts[appt.slotId] || 0) + 1;
+    });
 
     // Map generated slots with availability
     const slots = timeSlotConfig.generatedSlots.map((slot) => ({
       slotId: slot.slotId,
       startTime: slot.startTime,
       endTime: slot.endTime,
-      isAvailable: !slot.isBreak && !bookedSlotIds.includes(slot.slotId),
+      isAvailable: !slot.isBreak && (slotCounts[slot.slotId] || 0) < 2,
     }));
 
     return res
@@ -330,18 +333,18 @@ const createAppointment = async (req, res) => {
     }
 
 
-    // Check if slot is already booked
-    const already = await Appointment.findOne({
+    // Check if slot is already booked (limit 2)
+    const bookedCount = await Appointment.countDocuments({
       date: date,
       slotId: validSlot.slotId,
       status: { $in: ["reserved", "confirmed", "booked"] },
       isDelete: false,
     });
 
-    if (already) {
+    if (bookedCount >= 2) {
       return res
         .status(400)
-        .json(new ApiError(400, "This slot is already booked"));
+        .json(new ApiError(400, "This slot is fully booked"));
     }
 
     // Create appointment
@@ -455,7 +458,7 @@ const updateAppointment = async (req, res) => {
       }
 
       // Check if slot is already booked
-      const already = await Appointment.findOne({
+      const bookedCount = await Appointment.countDocuments({
         _id: { $ne: id }, // exclude current appointment
         date: appointmentDate,
         slotId: validSlot.slotId,
@@ -463,10 +466,10 @@ const updateAppointment = async (req, res) => {
         isDelete: false,
       });
 
-      if (already) {
+      if (bookedCount >= 2) {
         return res
           .status(400)
-          .json(new ApiError(400, "This slot is already booked"));
+          .json(new ApiError(400, "This slot is fully booked"));
       }
 
       updatedSlotId = validSlot.slotId;
