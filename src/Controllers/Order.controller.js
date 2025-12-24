@@ -606,27 +606,29 @@ const createOrder = async (req, res) => {
       payment: paymentData,
     });
 
-    try {
-      const contactInfo = await ContactInfo.findOne().lean();
-      const customerHTML = generateOrderConfirmationEmail(order, [], contactInfo);
-      const logoPath = path.join(__dirname, "..", "..", "public", "logo_light.png");
-      const attachments = [
-        {
-          filename: "logo_light.png",
-          path: logoPath,
-          cid: "sct_logo_light",
-        },
-      ];
+    (async () => {
+      try {
+        const contactInfo = await ContactInfo.findOne().lean();
+        const customerHTML = generateOrderConfirmationEmail(order, [], contactInfo);
+        const logoPath = path.join(__dirname, "..", "..", "public", "logo_light.png");
+        const attachments = [
+          {
+            filename: "logo_light.png",
+            path: logoPath,
+            cid: "sct_logo_light",
+          },
+        ];
 
-      await sendMail(
-        appointment.email,
-        "Order Confirmation - Your Appointment is Confirmed!",
-        customerHTML,
-        attachments
-      );
-    } catch (emailError) {
-      console.error("Email Error:", emailError);
-    }
+        await sendMail(
+          appointment.email,
+          "Order Confirmation - Your Appointment is Confirmed!",
+          customerHTML,
+          attachments
+        );
+      } catch (emailError) {
+        console.error("Email Error:", emailError);
+      }
+    })();
 
     return res
       .status(201)
