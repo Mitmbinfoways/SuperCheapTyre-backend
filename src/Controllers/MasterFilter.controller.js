@@ -1,7 +1,6 @@
 const ApiResponse = require("../Utils/ApiResponse");
 const ApiError = require("../Utils/ApiError");
 const MasterFilter = require("../Models/MasterFilter.model");
-
 const Product = require("../Models/Product.model");
 
 const createMasterFilter = async (req, res) => {
@@ -54,7 +53,7 @@ const getAllMasterFilters = async (req, res) => {
 
     const total = await MasterFilter.countDocuments(query);
 
-    let filtersQuery = MasterFilter.find(query).sort({ createdAt: -1 });
+    let filtersQuery = MasterFilter.find(query).sort({ createdAt: 1 });
 
     if (page && limit) {
       const skip = (parseInt(page) - 1) * parseInt(limit);

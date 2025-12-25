@@ -107,10 +107,8 @@ const getAllProducts = async (req, res) => {
       ];
     }
 
-    let sortOption = { createdAt: -1 };
-    if (sortBy === "low-to-high") {
-      sortOption = { price: 1 };
-    } else if (sortBy === "high-to-low") {
+    let sortOption = { price: 1 };
+    if (sortBy === "high-to-low") {
       sortOption = { price: -1 };
     }
 
