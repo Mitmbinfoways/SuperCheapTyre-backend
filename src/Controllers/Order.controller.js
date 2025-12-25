@@ -111,6 +111,7 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
     appointment = {},
     customer = {},
     payment = [],
+    charges = 0,
   } = order;
 
   const paymentInfo = Array.isArray(payment) ? payment[0] || {} : payment || {};
@@ -185,14 +186,14 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
     })
     .join("");
 
-  const formattedSubtotal = Number(subtotal).toFixed(2);
+  const formattedSubtotal = Number(subtotal + order.charges).toFixed(2);
   const formattedTotal = Number(total).toFixed(2);
   const taxAmountVal = Number(order.taxAmount || 0);
   const taxAmount = taxAmountVal.toFixed(2);
   const tax = order.tax;
   const taxName = order.taxName || "Tax";
   const paidAmount = Number(paymentInfo.amount || 0);
-  const unpaidAmount = (Number(subtotal) - paidAmount).toFixed(2);
+  const unpaidAmount = (Number(subtotal) + Number(order.charges || 0) - paidAmount).toFixed(2);
 
 
   // Format date properly
@@ -338,6 +339,12 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
         <td style="text-align: right; color: #333;">AU$${taxAmount}</td>
       </tr>
 
+      ${charges ? `
+      <tr>
+        <td style="text-align: right; color: #666;"><strong>Transaction Fees:</strong></td>
+        <td style="text-align: right; color: #333;">AU$${Number(charges).toFixed(2)}</td>
+      </tr>` : ''}
+
       <tr>
         <td style="text-align: right; color: #666;"><strong>Paid Amount:</strong></td>
         <td style="text-align: right; color: #4CAF50; font-weight: bold;">AU$${paidAmount.toFixed(2)}</td>
@@ -388,7 +395,7 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
 
 const createOrder = async (req, res) => {
   try {
-    const { items: reqItems, serviceItems: reqServiceItems, subtotal, total, appointmentId, customer, payment } =
+    const { items: reqItems, serviceItems: reqServiceItems, subtotal, total, appointmentId, customer, payment, charges } =
       req.body;
 
     const items = Array.isArray(reqItems) ? reqItems : [];
@@ -604,6 +611,7 @@ const createOrder = async (req, res) => {
       },
       customer: customerData,
       payment: paymentData,
+      charges: charges || 0,
     });
 
     (async () => {
@@ -1206,11 +1214,17 @@ Note: Wait time may vary according to workshop load.`,
       totalPaidSoFar = currentPaidAmount;
     }
 
-    const unpaidAmount = Math.max(0, order.subtotal - totalPaidSoFar);
+    // Calculate unpaid amount based on Total (Subtotal + Charges)
+    const finalTotalForCalc = order.subtotal + (order.charges || 0);
+    const unpaidAmount = Math.max(0, finalTotalForCalc - totalPaidSoFar);
 
     // Calculate dynamic height based on fields to show
-    // Structure: Top Pad(18) + Subtotal(22) + Tax(22) + Pmt(44/66) + Div(24) + Gap(14) + Box(32) + Bot Pad(6)
+    // Structure: Top Pad(18) + Subtotal(22) + Tax(22) + [Charges(22)] + Pmt(44/66) + Div(24) + Gap(14) + Box(32) + Bot Pad(6)
     let summaryBoxHeight = 18 + 22 + 22 + 24 + 14 + 32 + 6;
+
+    if (order.charges) {
+      summaryBoxHeight += 22; // Extra space for Transaction Fees
+    }
 
     if (isFirstPayment) {
       summaryBoxHeight += 44;
@@ -1248,7 +1262,7 @@ Note: Wait time may vary according to workshop load.`,
     doc
       .fillColor(textPrimary)
       .font("Helvetica-Bold")
-      .text(`AU$${order.subtotal.toFixed(2) - order.taxAmount.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
+      .text(`AU$${(order.subtotal - order.taxAmount).toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
         width: summaryBoxWidth - 40,
         align: "right",
       });
@@ -1267,6 +1281,22 @@ Note: Wait time may vary according to workshop load.`,
         align: "right",
       });
 
+    // 1b. Transaction Fees (if applicable)
+    if (order.charges) {
+      summaryYPos += 22;
+      doc
+        .fontSize(10)
+        .fillColor(textSecondary)
+        .font("Helvetica")
+        .text("Transaction Fees:", summaryBoxX + 20, summaryYPos);
+      doc
+        .fillColor(textPrimary)
+        .font("Helvetica-Bold")
+        .text(`AU$${order.charges.toFixed(2)}`, summaryBoxX + 20, summaryYPos, {
+          width: summaryBoxWidth - 40,
+          align: "right",
+        });
+    }
 
     // 2. Payment Fields
     if (isFirstPayment) {
@@ -1368,6 +1398,7 @@ Note: Wait time may vary according to workshop load.`,
 
     let totalLabel = "TOTAL:";
     let totalValue = totalPaidSoFar;
+    const finalTotal = order.subtotal + (order.charges || 0);
 
     doc
       .fontSize(12)
@@ -1378,7 +1409,7 @@ Note: Wait time may vary according to workshop load.`,
     doc
       .fontSize(16)
       .fillColor(textPrimary)
-      .text(`AU$${order.subtotal.toFixed(2)}`, summaryBoxX + 24, summaryYPos, {
+      .text(`AU$${finalTotal.toFixed(2)}`, summaryBoxX + 24, summaryYPos, {
         width: summaryBoxWidth - 48,
         align: "right",
       });

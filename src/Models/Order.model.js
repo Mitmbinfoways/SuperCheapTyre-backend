@@ -1,3 +1,4 @@
+
 const mongoose = require("mongoose");
 
 const orderItemSchema = new mongoose.Schema({
@@ -26,6 +27,7 @@ const customerSchema = new mongoose.Schema({
   name: { type: String, required: true },
   phone: { type: String, required: true },
   email: { type: String, default: "" },
+  // address: { type: String, default: "" },
 });
 
 const appointmentSchema = new mongoose.Schema({
@@ -56,6 +58,7 @@ const orderSchema = new mongoose.Schema(
     items: { type: [orderItemSchema] },
     serviceItems: { type: [orderServiceSchema] },
     subtotal: { type: Number },
+    charges: { type: Number },
     taxName: { type: String, default: "" },
     tax: { type: Number, default: 0 },
     taxAmount: { type: Number, default: 0 },
