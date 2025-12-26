@@ -20,6 +20,7 @@ const ContactInfoRoute = require("./Routes/ContactInfo.route");
 const ServiceRoute = require("./Routes/Service.route");
 const TaxRoute = require("./Routes/Tax.route");
 const LogRoute = require("./Routes/Log.route");
+const WebhookRoute = require("./Routes/Webhook.route");
 const actionLogger = require("./Utils/actionLogger");
 
 
@@ -28,6 +29,7 @@ app.use(
     origin: process.env.CORS_ORIGIN || "*",
   })
 );
+app.use("/api/v1/webhook", express.raw({ type: "application/json" }), WebhookRoute);
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "..", "public")));
