@@ -195,7 +195,7 @@ const payment = async (req, res) => {
       status: sessions.payment_status,
       amount_total: sessions.amount_total,
       currency: sessions.currency,
-      orderId: orderId
+      orderId: orderId,
     });
   } catch (error) {
     console.error("Payment error:", error);
@@ -224,4 +224,20 @@ const getSessionStatus = async (req, res) => {
   }
 };
 
-module.exports = { payment, getSessionStatus };
+const checkPaymentStatus = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    if (!orderId) return res.status(400).json({ error: "Order ID is required" });
+
+    const order = await Order.findById(orderId).select("payment");
+    if (!order) return res.status(404).json({ error: "Order not found" });
+
+    const status = order.payment && order.payment[0] ? order.payment[0].status : "pending";
+    res.json({ status });
+  } catch (error) {
+    console.error("Error checking payment status:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+module.exports = { payment, getSessionStatus, checkPaymentStatus };
