@@ -1109,15 +1109,12 @@ Note: Wait time may vary according to workshop load.`,
         .text("Payment Status:", leftBoxX + 18, paymentBoxY + 10);
 
       const paymentStatusColor =
-        paymentToDisplay.status === "full"
-          ? successColor
-          : paymentToDisplay.status === "partial"
-            ? warningColor
-            : paymentToDisplay.status === "full"
-              ? successColor
-              : dangerColor;
+        paymentToDisplay.status === "full" ? successColor : warningColor;
 
-      let statusText = paymentToDisplay?.status?.toUpperCase() || "N/A";
+      let statusText =
+        paymentToDisplay?.status === "full"
+          ? "FULL"
+          : "PARTIAL";
 
       // Fix: If payment amount covers the total, force status to FULL
       if (paymentToDisplay.subtotal >= order.total) {
@@ -1515,7 +1512,8 @@ const updateOrder = async (req, res) => {
 
     // 3. Update Totals
     if (subtotal !== undefined) order.subtotal = subtotal;
-    if (total !== undefined) order.total = total;
+    // Calculate total: subtotal + charges
+    order.total = (order.subtotal || 0) + (order.charges || 0);
 
     // 4. Handle Payment
     // Only add payment if amount is provided and valid
