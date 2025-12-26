@@ -45,157 +45,50 @@ const payment = async (req, res) => {
       };
     });
 
-    let orderId = null;
+    // 2. Prepare Metadata for Webhook (To create order later)
+    const metadata = {};
 
-    // 2. Create Pending Order if Details provided
     if (OrderDetails) {
-      const { appointment, customer, items, serviceItems, paymentOption, charges } = OrderDetails;
+      const { appointment, items, serviceItems, paymentOption, charges } = OrderDetails;
 
-      // Create Appointment
-      const appointmentDoc = await Appointment.create({
-        firstname: appointment.firstName,
-        lastname: appointment.lastName,
+      // Appointment Data (Compact)
+      const appointmentData = {
+        firstName: appointment.firstName,
+        lastName: appointment.lastName,
         phone: appointment.phone,
         email: appointment.email,
-        date: appointment.date, // YYYY-MM-DD
-        slotId: appointment.slotId, // The time slot ID e.g. "09:00"
-        timeSlotId: appointment.timeSlotId, // The DB ID of the timeslot document
+        date: appointment.date,
+        slotId: appointment.slotId,
+        timeSlotId: appointment.timeSlotId,
         time: appointment.time,
-        notes: appointment.remarks,
-        status: "pending", // Initially pending until payment confirmed
-      });
+        remarks: appointment.remarks
+      };
 
-      // Fetch TimeSlot info
-      let slotInfo = null;
-      if (appointment.slotId) {
-        // Try to find the timeslot to get start/end time
-        // Implementation similar to Order.controller.js
-        const timeSlotDoc = await TimeSlot.findOne({
-          "generatedSlots.slotId": appointment.slotId,
-        }).lean();
-        if (timeSlotDoc) {
-          const matchedSlot = timeSlotDoc.generatedSlots.find(s => s.slotId === appointment.slotId);
-          if (matchedSlot) slotInfo = { startTime: matchedSlot.startTime, endTime: matchedSlot.endTime };
-        }
-      }
+      // Items Data (Compact: ID and Qty)
+      const itemsSimple = (items || []).map(i => ({ id: i.id, quantity: i.quantity }));
+      const servicesSimple = (serviceItems || []).map(i => ({ id: i.id, quantity: i.quantity }));
 
-      // Calculate totals
-      let subtotal = 0;
-      const enrichedItems = [];
-      const enrichedServiceItems = [];
-
-      // Process Items
-      for (const item of items || []) {
-        const product = await Product.findById(item.id).lean();
-        if (product) {
-          subtotal += (product.price * item.quantity);
-          enrichedItems.push({
-            id: item.id,
-            quantity: item.quantity,
-            name: product.name,
-            brand: product.brand,
-            category: product.category,
-            price: product.price,
-            image: product.images?.[0] || "",
-            sku: product.sku || ""
-          });
-          // Decrement stock? Maybe wait for webhook. But let's decrement to be safe vs overselling.
-          await Product.findByIdAndUpdate(item.id, { $inc: { stock: -item.quantity } });
-        }
-      }
-
-      // Process Services
-      for (const item of serviceItems || []) {
-        const service = await Service.findById(item.id).lean();
-        if (service) {
-          subtotal += (service.price * item.quantity);
-          enrichedServiceItems.push({
-            id: item.id,
-            quantity: item.quantity,
-            name: service.name,
-            description: service.description,
-            price: service.price,
-            image: service.images?.[0] || ""
-          });
-        }
-      }
-
-      const taxDoc = await Tax.findOne().lean();
-      const taxPercentage = taxDoc?.percentage ?? 10;
-      const taxAmount = subtotal * (taxPercentage / 100);
-
-      // Total calculation logic
-      // The amount user pays via Stripe (totalAmount) includes partial logic.
-      // But 'total' field in Order usually means the Full Value of the order.
-      // 'payment' field tracks how much was paid.
-      // OrderDetails.totalAmount passed from frontend is the amount being paid NOW.
-
-      const totalOrderValue = subtotal + (charges || 0);
-      // Note: `charges` (transaction fee) is usually added to the amount user pays.
-
-      const paymentAmount = OrderDetails.paymentAmount; // Amount being paid in this session
-
-      const orderDoc = await Order.create({
-        items: enrichedItems,
-        serviceItems: enrichedServiceItems,
-        subtotal: subtotal,
-        total: totalOrderValue, // Total value of goods
-        charges: charges || 0,
-        taxName: taxDoc?.name || "GST",
-        tax: taxPercentage,
-        taxAmount: taxAmount,
-        appointment: {
-          id: appointmentDoc._id,
-          firstName: appointmentDoc.firstname,
-          lastName: appointmentDoc.lastname,
-          phone: appointmentDoc.phone,
-          email: appointmentDoc.email,
-          date: appointmentDoc.date,
-          slotId: appointmentDoc.slotId,
-          time: slotInfo ? `${slotInfo.startTime}-${slotInfo.endTime}` : appointmentDoc.time,
-          timeSlotId: appointmentDoc.timeSlotId
-        },
-        customer: {
-          name: `${appointment.firstName} ${appointment.lastName}`,
-          phone: appointment.phone,
-          email: appointment.email
-        },
-        payment: [{
-          method: "stripe",
-          status: "pending", // Pending confirmation
-          amount: paymentAmount,
-          currency: "AU$"
-        }]
-      });
-
-      orderId = orderDoc._id;
+      metadata.appointment = JSON.stringify(appointmentData);
+      metadata.items = JSON.stringify(itemsSimple);
+      metadata.serviceItems = JSON.stringify(servicesSimple);
+      metadata.paymentOption = paymentOption || 'full';
+      metadata.charges = charges || 0;
+      metadata.paymentAmount = OrderDetails.paymentAmount;
     }
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: lineItems,
       mode: "payment",
-      success_url: `${process.env.CLIENT_URL}/success?session_id={CHECKOUT_SESSION_ID}&order_id=${orderId || ''}`,
+      success_url: `${process.env.CLIENT_URL}/success?session_id={CHECKOUT_SESSION_ID}`, // Removed order_id
       cancel_url: `${process.env.CLIENT_URL}/cancel`,
-      metadata: orderId ? {
-        orderId: orderId.toString(),
-        paymentType: OrderDetails?.paymentOption || 'full'
-      } : {},
-      client_reference_id: orderId ? orderId.toString() : undefined,
-    });
-
-    const sessions = await stripe.checkout.sessions.retrieve(session.id, {
-      expand: ["payment_intent"],
+      metadata: metadata,
     });
 
     res.json({
       id: session.id,
       url: session.url,
-      transactionId: sessions.payment_intent?.id || null,
-      status: sessions.payment_status,
-      amount_total: sessions.amount_total,
-      currency: sessions.currency,
-      orderId: orderId,
+      orderId: null // No order ID yet
     });
   } catch (error) {
     console.error("Payment error:", error);
@@ -240,4 +133,22 @@ const checkPaymentStatus = async (req, res) => {
   }
 };
 
-module.exports = { payment, getSessionStatus, checkPaymentStatus };
+const checkPaymentStatusBySession = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    if (!sessionId) return res.status(400).json({ error: "Session ID is required" });
+
+    // Find order where payment.providerPayload.id matches sessionId
+    const order = await Order.findOne({ "payment.providerPayload.id": sessionId }).select("payment");
+
+    if (!order) return res.status(404).json({ error: "Order not found" });
+
+    const status = order.payment && order.payment[0] ? order.payment[0].status : "pending";
+    res.json({ status });
+  } catch (error) {
+    console.error("Error checking session status:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+module.exports = { payment, getSessionStatus, checkPaymentStatus, checkPaymentStatusBySession };

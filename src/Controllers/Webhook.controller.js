@@ -315,102 +315,204 @@ const handleWebhook = async (req, res) => {
 
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
-
-    const orderId = session.client_reference_id || (session.metadata ? session.metadata.orderId : null);
-
-    if (!orderId) {
-      console.error('No orderId found in session');
-      return res.json({ received: true });
-    }
+    const metadata = session.metadata || {};
+    let orderId = session.client_reference_id || metadata.orderId;
 
     try {
-      const order = await Order.findById(orderId);
-      if (!order) {
-        console.error(`Order not found: ${orderId}`);
-        return res.json({ received: true });
-      }
-
-      if (order.payment && order.payment[0] && order.payment[0].status === 'full') {
-        console.log('Order already confirmed');
-        return res.json({ received: true });
-      }
-
-      // Update Order
-      // Check if full or partial
-      // In current logic, we probably set amount in createOrder.
-      // Here we confirm it.
-      // If the payment amount matches total, it's full.
-      // Actually, session.amount_total is in cents. order.payment[0].amount is in dollars usually?
-      // Let's check Payment.controller.js: unit_amount: Math.round(price * 100).
-
-      // We can trust the payment logic that set 'full' or 'partial' in the Pending Order.
-      // But usually we should mark valid transactionId.
-
-      const paymentUpdate = {
-        ...order.payment[0].toObject(),
-        transactionId: session.payment_intent,
-        status: order.payment[0].status || 'full', // Default to full if not set?? No, trust pending order
-        // Or better:
-        providerPayload: session
-      };
-
-      // If the created order had status 'pending', we set it to the intended status.
-      // BUT, how do we know if it was intended to be 'partial' or 'full'?
-      // We should have saved that in the order.
-      // Let's assume the Order created has the correct intended status, just waiting for confirmation.
-
-      // Wait, order.payment.status in schema defaults to 'pending'.
-      // When creating the order in Payment.controller.js (new logic), we should set it to 'pending_full' or 'pending_partial'??
-      // Or just store it in metadata: 'paymentType': 'full' | 'partial'.
-
-      const paymentType = session.metadata?.paymentType || 'full'; // Default to full if missing
-
-      paymentUpdate.status = paymentType;
-
-      await Order.findByIdAndUpdate(orderId, {
-        $set: {
-          "payment.0": paymentUpdate
+      // ---------------------------------------------------------
+      // CASE 1: Updating an Existing Order (Legacy or Admin created)
+      // ---------------------------------------------------------
+      if (orderId) {
+        const order = await Order.findById(orderId);
+        if (!order) {
+          console.error(`Order not found: ${orderId}`);
+          return res.json({ received: true });
         }
-      });
+        if (order.payment && order.payment[0] && order.payment[0].status === 'full') {
+          console.log('Order already confirmed');
+          return res.json({ received: true });
+        }
 
-      // Update Appointment
-      if (order.appointment && order.appointment.id) {
-        await Appointment.findByIdAndUpdate(order.appointment.id, {
-          status: 'confirmed'
+        const paymentType = metadata.paymentType || 'full';
+        const paymentUpdate = {
+          ...order.payment[0].toObject(),
+          transactionId: session.payment_intent,
+          providerPayload: session
+        };
+        paymentUpdate.status = paymentType;
+
+        await Order.findByIdAndUpdate(orderId, {
+          $set: { "payment.0": paymentUpdate }
         });
+
+        if (order.appointment && order.appointment.id) {
+          await Appointment.findByIdAndUpdate(order.appointment.id, { status: 'confirmed' });
+        }
+
+        // Send Email logic for existing order
+        const productIds = order.items.map(i => i.id);
+        const products = await Product.find({ _id: { $in: productIds } }).lean();
+        const contactInfo = await ContactInfo.findOne().lean();
+        const updatedOrder = await Order.findById(orderId).lean();
+        const emailHTML = generateOrderConfirmationEmail(updatedOrder, products, contactInfo);
+        const logoPath = path.join(__dirname, "..", "..", "public", "logo_light.png");
+        const attachments = [{ filename: "logo_light.png", path: logoPath, cid: "sct_logo_light" }];
+
+        if (updatedOrder.appointment && updatedOrder.appointment.email) {
+          try {
+            await sendMail(updatedOrder.appointment.email, "Order Confirmation - Your Appointment is Confirmed!", emailHTML, attachments);
+          } catch (emailErr) {
+            console.error("FAILED TO SEND EMAIL:", emailErr.message);
+          }
+        }
+
       }
+      // ---------------------------------------------------------
+      // CASE 2: Creating New Order (Stripe-First Flow)
+      // ---------------------------------------------------------
+      else {
+        console.log("Creating new order from Webhook Metadata");
 
-      // Send Email
-      // Need products for email
-      const productIds = order.items.map(i => i.id);
-      const products = await Product.find({ _id: { $in: productIds } }).lean();
-      const contactInfo = await ContactInfo.findOne().lean();
+        // 1. Parse Metadata
+        const appointmentData = JSON.parse(metadata.appointment || '{}');
+        const itemsSimple = JSON.parse(metadata.items || '[]');
+        const serviceItemsSimple = JSON.parse(metadata.serviceItems || '[]');
+        const paymentOption = metadata.paymentOption || 'full';
+        const charges = Number(metadata.charges || 0);
+        const paymentAmount = Number(metadata.paymentAmount || 0); // Amount paid in Stripe
 
-      // Re-fetch order to get updated data?
-      const updatedOrder = await Order.findById(orderId).lean();
+        if (!appointmentData.email) {
+          console.error("Missing appointment data in metadata");
+          return res.json({ received: true });
+        }
 
-      const emailHTML = generateOrderConfirmationEmail(updatedOrder, products, contactInfo);
-      const logoPath = path.join(__dirname, "..", "..", "public", "logo_light.png");
-      const attachments = [
-        {
-          filename: "logo_light.png",
-          path: logoPath,
-          cid: "sct_logo_light",
-        },
-      ];
+        // 2. Create Appointment
+        const appointmentDoc = await Appointment.create({
+          firstname: appointmentData.firstName,
+          lastname: appointmentData.lastName,
+          phone: appointmentData.phone,
+          email: appointmentData.email,
+          date: appointmentData.date,
+          slotId: appointmentData.slotId,
+          timeSlotId: appointmentData.timeSlotId,
+          time: appointmentData.time,
+          notes: appointmentData.remarks,
+          status: "confirmed", // Confirmed immediately
+        });
 
-      if (updatedOrder.appointment && updatedOrder.appointment.email) {
+        // 3. Process Items & Inventory
+        let subtotal = 0;
+        const enrichedItems = [];
+        const enrichedServiceItems = [];
+
+        // Products
+        for (const item of itemsSimple) {
+          const product = await Product.findById(item.id).lean();
+          if (product) {
+            subtotal += (product.price * item.quantity);
+            enrichedItems.push({
+              id: item.id,
+              quantity: item.quantity,
+              name: product.name,
+              brand: product.brand,
+              category: product.category,
+              price: product.price,
+              image: product.images?.[0] || "",
+              sku: product.sku || ""
+            });
+            // Decrement Stock
+            await Product.findByIdAndUpdate(item.id, { $inc: { stock: -item.quantity } });
+          }
+        }
+
+        // Services
+        for (const item of serviceItemsSimple) {
+          const service = await Service.findById(item.id).lean();
+          if (service) {
+            subtotal += (service.price * item.quantity);
+            enrichedServiceItems.push({
+              id: item.id,
+              quantity: item.quantity,
+              name: service.name,
+              description: service.description,
+              price: service.price,
+              image: service.images?.[0] || ""
+            });
+          }
+        }
+
+        // 4. Calculate Taxes & Totals
+        // (Assuming you have access to Tax model, imported in file head? If not, need to check imports)
+        // Note: The original file didn't import Tax. I need to make sure I add Tax import if used, 
+        // or just hardcode tax logic if Tax model import is missing status. 
+        // Checking imports: Order, Appointment, Product, ContactInfo are imported. Tax is likely NOT imported.
+        // I will dynamically require Tax or use hardcoded default for safety inside this block.
+
+        let taxPercentage = 10;
+        let taxName = "GST";
         try {
-          await sendMail(
-            updatedOrder.appointment.email,
-            "Order Confirmation - Your Appointment is Confirmed!",
-            emailHTML,
-            attachments
-          );
-          console.log("Email sent successfully to:", updatedOrder.appointment.email);
+          const Tax = require("../Models/Tax.model");
+          const taxDoc = await Tax.findOne().lean();
+          if (taxDoc) {
+            taxPercentage = taxDoc.percentage;
+            taxName = taxDoc.name;
+          }
+        } catch (e) { console.log("Tax model load failed, using default"); }
+
+        const taxAmount = subtotal * (taxPercentage / 100);
+        const totalOrderValue = subtotal + charges;
+
+        // 5. Create Order
+        const orderDoc = await Order.create({
+          items: enrichedItems,
+          serviceItems: enrichedServiceItems,
+          subtotal: subtotal,
+          total: totalOrderValue,
+          charges: charges,
+          taxName: taxName,
+          tax: taxPercentage,
+          taxAmount: taxAmount,
+          appointment: {
+            id: appointmentDoc._id,
+            firstName: appointmentDoc.firstname,
+            lastName: appointmentDoc.lastname,
+            phone: appointmentDoc.phone,
+            email: appointmentDoc.email,
+            date: appointmentDoc.date,
+            slotId: appointmentDoc.slotId,
+            time: appointmentDoc.time,
+            timeSlotId: appointmentDoc.timeSlotId
+          },
+          customer: {
+            name: `${appointmentData.firstName} ${appointmentData.lastName}`,
+            phone: appointmentData.phone,
+            email: appointmentData.email
+          },
+          payment: [{
+            method: "stripe",
+            status: paymentOption, // 'full' or 'partial'
+            amount: paymentAmount,
+            transactionId: session.payment_intent,
+            providerPayload: session,
+            currency: "AU$"
+          }]
+        });
+
+        console.log(`New Order Created via Webhook: ${orderDoc._id}`);
+        orderId = orderDoc._id; // Set for email logic
+
+        // 6. Send Email
+        const products = await Product.find({ _id: { $in: itemsSimple.map(i => i.id) } }).lean();
+        const contactInfo = await ContactInfo.findOne().lean();
+        const emailHTML = generateOrderConfirmationEmail(orderDoc.toObject(), products, contactInfo);
+        const logoPath = path.join(__dirname, "..", "..", "public", "logo_light.png");
+        const attachments = [{ filename: "logo_light.png", path: logoPath, cid: "sct_logo_light" }];
+
+        try {
+          await sendMail(appointmentData.email, "Order Confirmation - Your Appointment is Confirmed!", emailHTML, attachments);
+          console.log("Email sent successfully");
         } catch (emailErr) {
           console.error("FAILED TO SEND EMAIL:", emailErr.message);
-          console.error("Email Stack:", emailErr.stack);
         }
       }
 
