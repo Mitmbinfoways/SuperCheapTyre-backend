@@ -144,7 +144,7 @@ const checkPaymentStatusBySession = async (req, res) => {
     if (!order) return res.status(404).json({ error: "Order not found" });
 
     const status = order.payment && order.payment[0] ? order.payment[0].status : "pending";
-    res.json({ status });
+    res.json({ status, orderId: order._id });
   } catch (error) {
     console.error("Error checking session status:", error);
     res.status(500).json({ error: "Server error" });
