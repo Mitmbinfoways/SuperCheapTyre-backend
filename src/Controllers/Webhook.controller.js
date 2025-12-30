@@ -7,7 +7,28 @@ const TempOrder = require("../Models/TempOrder.model");
 const ContactInfo = require("../Models/ContactInfo.model");
 const sendMail = require("../Utils/Nodemailer");
 const path = require("path");
+const fs = require("fs");
 const dayjs = require("dayjs");
+
+// Helper function to find logo path (works on both local and server)
+const getLogoPath = () => {
+  const possiblePaths = [
+    path.join(__dirname, "..", "..", "public", "logo_light.png"),
+    path.join(process.cwd(), "public", "logo_light.png"),
+    path.join(__dirname, "public", "logo_light.png"),
+  ];
+
+  for (const logoPath of possiblePaths) {
+    if (fs.existsSync(logoPath)) {
+      console.log(`✅ Logo found at: ${logoPath}`);
+      return logoPath;
+    }
+  }
+
+  console.error(`❌ Logo file not found. Searched paths:`);
+  possiblePaths.forEach(p => console.error(`   - ${p}`));
+  return null;
+};
 
 // Copy of generateOrderConfirmationEmail from Order.controller.js because it wasn't exported
 const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = {}) => {
@@ -25,7 +46,9 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
 
   const paymentInfo = Array.isArray(payment) ? payment[0] || {} : payment || {};
 
-  const logoUrl = "cid:sct_logo_light";
+  // Use backend URL for logo to avoid attachment delivery issues
+  const backendUrl = process.env.BACKEND_APP_URL || "https://api.supercheaptyres.com.au";
+  const logoUrl = `${backendUrl}/logo_light.png`;
 
   const itemsHTML = items
     .map((item) => {
@@ -357,14 +380,14 @@ const handleWebhook = async (req, res) => {
         const contactInfo = await ContactInfo.findOne().lean();
         const updatedOrder = await Order.findById(orderId).lean();
         const emailHTML = generateOrderConfirmationEmail(updatedOrder, products, contactInfo);
-        const logoPath = path.join(__dirname, "..", "..", "public", "logo_light.png");
-        const attachments = [{ filename: "logo_light.png", path: logoPath, cid: "sct_logo_light" }];
 
         if (updatedOrder.appointment && updatedOrder.appointment.email) {
           try {
-            await sendMail(updatedOrder.appointment.email, "Order Confirmation - Your Appointment is Confirmed!", emailHTML, attachments);
+            await sendMail(updatedOrder.appointment.email, "Order Confirmation - Your Appointment is Confirmed!", emailHTML);
+            console.log(`✅ Customer email sent to: ${updatedOrder.appointment.email}`);
           } catch (emailErr) {
-            console.error("FAILED TO SEND EMAIL:", emailErr.message);
+            console.error(`❌ FAILED TO SEND EMAIL to ${updatedOrder.appointment.email}:`, emailErr.message);
+            console.error(`Error details:`, emailErr);
           }
         }
 
@@ -558,16 +581,14 @@ const handleWebhook = async (req, res) => {
         const products = await Product.find({ _id: { $in: itemsSimple.map(i => i.id) } }).lean();
         const contactInfo = await ContactInfo.findOne().lean();
         const emailHTML = generateOrderConfirmationEmail(orderDoc.toObject(), products, contactInfo);
-        const logoPath = path.join(__dirname, "..", "..", "public", "logo_light.png");
-        const attachments = [{ filename: "logo_light.png", path: logoPath, cid: "sct_logo_light" }];
 
         try {
-          await sendMail(appointmentData.email, "Order Confirmation - Your Appointment is Confirmed!", emailHTML, attachments);
+          await sendMail(appointmentData.email, "Order Confirmation - Your Appointment is Confirmed!", emailHTML);
           console.log("Customer Email sent successfully");
 
           // Send Admin Email
-          if (contactInfo && contactInfo.email) {
-            const adminHTML = `
+
+          const adminHTML = `
                 <h2>New Appointment & Order Received</h2>
                 <p><strong>Customer:</strong> ${appointmentData.firstName} ${appointmentData.lastName}</p>
                 <p><strong>Phone:</strong> ${appointmentData.phone}</p>
@@ -579,9 +600,9 @@ const handleWebhook = async (req, res) => {
                 <br/>
                 <p>Check Admin Dashboard for full details.</p>
             `;
-            await sendMail(contactInfo.email, "New Order & Appointment Received", adminHTML);
-            console.log("Admin Email sent successfully");
-          }
+          await sendMail(contactInfo.email, "New Order & Appointment Received", adminHTML);
+          console.log("Admin Email sent successfully");
+
 
         } catch (emailErr) {
           console.error("FAILED TO SEND EMAIL:", emailErr.message);

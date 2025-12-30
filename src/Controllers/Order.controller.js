@@ -116,7 +116,9 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
 
   const paymentInfo = Array.isArray(payment) ? payment[0] || {} : payment || {};
 
-  const logoUrl = "cid:sct_logo_light";
+  // Use backend URL for logo to avoid attachment delivery issues
+  const backendUrl = process.env.BACKEND_APP_URL || "https://api.supercheaptyres.com.au";
+  const logoUrl = `${backendUrl}/logo_light.png`;
 
   const itemsHTML = items
     .map((item) => {
@@ -618,20 +620,11 @@ const createOrder = async (req, res) => {
       try {
         const contactInfo = await ContactInfo.findOne().lean();
         const customerHTML = generateOrderConfirmationEmail(order, [], contactInfo);
-        const logoPath = path.join(__dirname, "..", "..", "public", "logo_light.png");
-        const attachments = [
-          {
-            filename: "logo_light.png",
-            path: logoPath,
-            cid: "sct_logo_light",
-          },
-        ];
 
         await sendMail(
           appointment.email,
           "Order Confirmation - Your Appointment is Confirmed!",
-          customerHTML,
-          attachments
+          customerHTML
         );
       } catch (emailError) {
         console.error("Email Error:", emailError);
