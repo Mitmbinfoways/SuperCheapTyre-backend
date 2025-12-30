@@ -583,11 +583,10 @@ const handleWebhook = async (req, res) => {
         const emailHTML = generateOrderConfirmationEmail(orderDoc.toObject(), products, contactInfo);
 
         try {
-          await sendMail(appointmentData.email, "Order Confirmation - Your Appointment is Confirmed!", emailHTML);
+          await sendMail(appointmentData.email, "Order Confirmation - Your Appointment is Confirmed!", emailHTML, [], process.env.SMTP_USER);
           console.log("Customer Email sent successfully");
 
           // Send Admin Email
-
           const adminHTML = `
                 <h2>New Appointment & Order Received</h2>
                 <p><strong>Customer:</strong> ${appointmentData.firstName} ${appointmentData.lastName}</p>
@@ -600,7 +599,7 @@ const handleWebhook = async (req, res) => {
                 <br/>
                 <p>Check Admin Dashboard for full details.</p>
             `;
-          await sendMail(contactInfo.email, "New Order & Appointment Received", adminHTML);
+          await sendMail(process.env.SMTP_USER, "New Order & Appointment Received", adminHTML);
           console.log("Admin Email sent successfully");
 
 

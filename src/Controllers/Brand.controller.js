@@ -24,7 +24,7 @@ const getAllBrands = async (req, res) => {
     }
 
     // Base query
-    let query = Brand.find(filter).sort({ createdAt: -1 });
+    let query = Brand.find(filter).sort({ name: 1 });
 
     // If page & limit NOT provided → return FULL data
     if (!page || !limit) {

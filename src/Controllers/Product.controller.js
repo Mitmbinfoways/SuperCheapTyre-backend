@@ -86,6 +86,8 @@ const getAllProducts = async (req, res) => {
 
     if (stock === "low-stock") {
       filter.stock = { $lte: 2 };
+    } else if (stock === "out-of-stock") {
+      filter.stock = { $lte: 0 };
     }
 
     if (search) {
@@ -499,7 +501,7 @@ const DashboardCount = async (req, res) => {
       blogCount,
     ] = await Promise.all([
       Product.countDocuments({ isDelete: false, isActive: true }),
-      Appointment.countDocuments(),
+      Appointment.countDocuments({ isDelete: false }),
       Query.countDocuments(),
       Order.countDocuments(),
       Holiday.countDocuments(),
