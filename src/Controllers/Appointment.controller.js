@@ -69,10 +69,16 @@ const getAllAppointments = async (req, res) => {
       technicianMap[tech._id.toString()] = tech;
     });
 
-    const timeSlotIds = [...new Set(appointments.map((a) => a.timeSlotId))];
+    const timeSlotIds = [...new Set(appointments.map((a) => a.timeSlotId).filter(Boolean))];
     const timeSlots = await TimeSlot.find({
       _id: { $in: timeSlotIds },
     }).lean();
+
+    // Fetch active time slot as fallback for legacy data
+    const activeTimeSlot = await TimeSlot.findOne({ isActive: true }).lean();
+    if (activeTimeSlot && !timeSlots.find(ts => ts._id.toString() === activeTimeSlot._id.toString())) {
+      timeSlots.push(activeTimeSlot);
+    }
 
     const timeSlotMap = {};
     timeSlots.forEach((ts) => {
@@ -80,13 +86,21 @@ const getAllAppointments = async (req, res) => {
     });
 
     const items = appointments.map((app) => {
-      const timeSlot = timeSlotMap[app.timeSlotId?.toString()];
+      // Try to find via explicit ID, or fallback to active time slot if that contains the slotId
+      let timeSlot = timeSlotMap[app.timeSlotId?.toString()];
+
       let slotDetails = null;
 
-      if (timeSlot?.generatedSlots?.length > 0) {
-        slotDetails = timeSlot.generatedSlots.find(
-          (s) => s.slotId === app.slotId
-        );
+      if (timeSlot?.generatedSlots) {
+        slotDetails = timeSlot.generatedSlots.find(s => s.slotId === app.slotId);
+      }
+
+      // Fallback to active time slot if specific one failed or didn't contain the slot
+      if (!slotDetails && activeTimeSlot?.generatedSlots) {
+        const foundInActive = activeTimeSlot.generatedSlots.find(s => s.slotId === app.slotId);
+        if (foundInActive) {
+          slotDetails = foundInActive;
+        }
       }
 
       const technician = technicianMap[app.Employee?.toString()] || null;
@@ -177,6 +191,24 @@ const getAppointmentById = async (req, res) => {
       slotDetails = timeSlot.generatedSlots.find(
         (s) => s.slotId === appointment.slotId
       );
+    }
+
+    // Fallback: If no slot details found (maybe timeSlotId was missing/wrong), try active config
+    if (!slotDetails && appointment.slotId) {
+      const activeTimeSlot = await TimeSlot.findOne({ isActive: true }).lean();
+      if (activeTimeSlot?.generatedSlots) {
+        slotDetails = activeTimeSlot.generatedSlots.find(
+          (s) => s.slotId === appointment.slotId
+        );
+
+        // Self-heal: Update the appointment with the correct timeSlotId if found
+        if (slotDetails) {
+          await Appointment.updateOne(
+            { _id: appointment._id },
+            { $set: { timeSlotId: activeTimeSlot._id } }
+          );
+        }
+      }
     }
 
     const data = {

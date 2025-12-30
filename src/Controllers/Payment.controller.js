@@ -6,6 +6,7 @@ const Product = require("../Models/Product.model");
 const Service = require("../Models/Service.model");
 const Tax = require("../Models/Tax.model");
 const TimeSlot = require("../Models/TimeSlot.model");
+const TempOrder = require("../Models/TempOrder.model");
 
 const payment = async (req, res) => {
   try {
@@ -45,35 +46,17 @@ const payment = async (req, res) => {
       };
     });
 
-    // 2. Prepare Metadata for Webhook (To create order later)
+    // 2. Prepare Metadata for Webhook via TempOrder (Database Strategy)
     const metadata = {};
 
     if (OrderDetails) {
-      const { appointment, items, serviceItems, paymentOption, charges } = OrderDetails;
+      // Save full details in TempOrder with 1h expiry
+      const tempOrder = await TempOrder.create({
+        data: OrderDetails
+      });
 
-      // Appointment Data (Compact)
-      const appointmentData = {
-        firstName: appointment.firstName,
-        lastName: appointment.lastName,
-        phone: appointment.phone,
-        email: appointment.email,
-        date: appointment.date,
-        slotId: appointment.slotId,
-        timeSlotId: appointment.timeSlotId,
-        time: appointment.time,
-        remarks: appointment.remarks
-      };
-
-      // Items Data (Compact: ID and Qty)
-      const itemsSimple = (items || []).map(i => ({ id: i.id, quantity: i.quantity }));
-      const servicesSimple = (serviceItems || []).map(i => ({ id: i.id, quantity: i.quantity }));
-
-      metadata.appointment = JSON.stringify(appointmentData);
-      metadata.items = JSON.stringify(itemsSimple);
-      metadata.serviceItems = JSON.stringify(servicesSimple);
-      metadata.paymentOption = paymentOption || 'full';
-      metadata.charges = charges || 0;
-      metadata.paymentAmount = OrderDetails.paymentAmount;
+      console.log(`Temp Order Created: ${tempOrder._id}`);
+      metadata.tempOrderId = tempOrder._id.toString();
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -138,8 +121,8 @@ const checkPaymentStatusBySession = async (req, res) => {
     const { sessionId } = req.params;
     if (!sessionId) return res.status(400).json({ error: "Session ID is required" });
 
-    // Find order where payment.providerPayload.id matches sessionId
-    const order = await Order.findOne({ "payment.providerPayload.id": sessionId }).select("payment");
+    // Find order by stripeSessionId (Robust method)
+    const order = await Order.findOne({ stripeSessionId: sessionId }).select("payment");
 
     if (!order) return res.status(404).json({ error: "Order not found" });
 

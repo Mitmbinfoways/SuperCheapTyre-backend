@@ -1593,6 +1593,32 @@ const getOrderById = async (req, res) => {
       return res.status(404).json(new ApiError(404, "Order not found"));
     }
 
+    // Attempt to populate appointment time if missing but slotId exists
+    if (order.appointment && order.appointment.slotId && !order.appointment.time) {
+      try {
+        const timeSlotDoc = await TimeSlot.findOne({
+          "generatedSlots.slotId": order.appointment.slotId,
+        }).lean();
+
+        if (timeSlotDoc) {
+          const matchedSlot = timeSlotDoc.generatedSlots.find(
+            (s) => s.slotId === order.appointment.slotId
+          );
+          if (matchedSlot) {
+            order.appointment.time = `${matchedSlot.startTime}-${matchedSlot.endTime}`;
+            // Persist the fix
+            await Order.updateOne(
+              { _id: order._id },
+              { $set: { "appointment.time": order.appointment.time } }
+            );
+          }
+        }
+      } catch (err) {
+        console.error("Error populating appointment time:", err);
+        // Continue without populating if error occurs
+      }
+    }
+
     // Collect product IDs from order items
     const productIds = order.items.map((item) => item.id);
 

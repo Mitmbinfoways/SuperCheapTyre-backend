@@ -66,6 +66,7 @@ const orderSchema = new mongoose.Schema(
     appointment: { type: appointmentSchema },
     customer: { type: customerSchema },
     payment: { type: [paymentSchema] },
+    stripeSessionId: { type: String, unique: true, sparse: true }
   },
   { timestamps: true }
 );

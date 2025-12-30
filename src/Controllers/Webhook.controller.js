@@ -2,6 +2,8 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const Order = require("../Models/Order.model");
 const Appointment = require("../Models/Appointment.model");
 const Product = require("../Models/Product.model");
+const Service = require("../Models/Service.model");
+const TempOrder = require("../Models/TempOrder.model");
 const ContactInfo = require("../Models/ContactInfo.model");
 const sendMail = require("../Utils/Nodemailer");
 const path = require("path");
@@ -373,17 +375,61 @@ const handleWebhook = async (req, res) => {
       else {
         console.log("Creating new order from Webhook Metadata");
 
-        // 1. Parse Metadata
-        const appointmentData = JSON.parse(metadata.appointment || '{}');
-        const itemsSimple = JSON.parse(metadata.items || '[]');
-        const serviceItemsSimple = JSON.parse(metadata.serviceItems || '[]');
-        const paymentOption = metadata.paymentOption || 'full';
-        const charges = Number(metadata.charges || 0);
-        const paymentAmount = Number(metadata.paymentAmount || 0); // Amount paid in Stripe
+        // 1. Parse Data (From Database or Metadata Logic)
+        let appointmentData = {};
+        let itemsSimple = [];
+        let serviceItemsSimple = [];
+        let paymentOption = 'full';
+        let charges = 0;
+        let paymentAmount = 0;
+
+        if (metadata.tempOrderId) {
+          console.log("Fetching details from TempOrder:", metadata.tempOrderId);
+          const tempOrder = await TempOrder.findById(metadata.tempOrderId);
+          if (tempOrder && tempOrder.data) {
+            const d = tempOrder.data;
+            appointmentData = d.appointment || {};
+            // Ensure items are mapped correctly
+            itemsSimple = (d.items || []).map(i => ({ id: i.id, quantity: i.quantity }));
+            serviceItemsSimple = (d.serviceItems || []).map(i => ({ id: i.id, quantity: i.quantity }));
+            paymentOption = d.paymentOption || 'full';
+            charges = Number(d.charges || 0);
+            paymentAmount = Number(d.paymentAmount || 0);
+          } else {
+            console.error("CRITICAL: TempOrder found but data missing or doc expired:", metadata.tempOrderId);
+          }
+        } else {
+          // Legacy Fallback (for older pending transactions)
+          appointmentData = JSON.parse(metadata.appointment || '{}');
+          itemsSimple = JSON.parse(metadata.items || '[]');
+          serviceItemsSimple = JSON.parse(metadata.serviceItems || '[]');
+          paymentOption = metadata.paymentOption || 'full';
+          charges = Number(metadata.charges || 0);
+          paymentAmount = Number(metadata.paymentAmount || 0);
+        }
 
         if (!appointmentData.email) {
-          console.error("Missing appointment data in metadata");
+          console.error("Missing appointment data (email) in webhook processing");
           return res.json({ received: true });
+        }
+
+        // Self-Heal: If Time string is missing but Slot ID exists (timeSlotId or slotId), fetch it
+        const lookupSlotId = appointmentData.timeSlotId || appointmentData.slotId;
+        console.log(`Checking Time Healing: Time='${appointmentData.time}', SlotId='${lookupSlotId}'`);
+
+        if (!appointmentData.time && lookupSlotId) {
+          try {
+            const TimeSlot = require("../Models/TimeSlot.model");
+            const timeSlot = await TimeSlot.findById(lookupSlotId);
+            if (timeSlot && timeSlot.time) {
+              appointmentData.time = timeSlot.time;
+              console.log(`Self-healed missing time: ${appointmentData.time}`);
+            } else {
+              console.log("TimeSlot found but no time, or not found");
+            }
+          } catch (err) {
+            console.error("Failed to self-heal time:", err.message);
+          }
         }
 
         // 2. Create Appointment
@@ -493,13 +539,20 @@ const handleWebhook = async (req, res) => {
             status: paymentOption, // 'full' or 'partial'
             amount: paymentAmount,
             transactionId: session.payment_intent,
-            providerPayload: session,
+            // providerPayload: session,
             currency: "AU$"
-          }]
+          }],
+          stripeSessionId: session.id, // Enforce Uniqueness
         });
 
         console.log(`New Order Created via Webhook: ${orderDoc._id}`);
         orderId = orderDoc._id; // Set for email logic
+
+        // 6. Delete TempOrder if it exists
+        if (metadata.tempOrderId) {
+          await TempOrder.findByIdAndDelete(metadata.tempOrderId);
+          console.log("Deleted TempOrder:", metadata.tempOrderId);
+        }
 
         // 6. Send Email
         const products = await Product.find({ _id: { $in: itemsSimple.map(i => i.id) } }).lean();
@@ -510,7 +563,26 @@ const handleWebhook = async (req, res) => {
 
         try {
           await sendMail(appointmentData.email, "Order Confirmation - Your Appointment is Confirmed!", emailHTML, attachments);
-          console.log("Email sent successfully");
+          console.log("Customer Email sent successfully");
+
+          // Send Admin Email
+          if (contactInfo && contactInfo.email) {
+            const adminHTML = `
+                <h2>New Appointment & Order Received</h2>
+                <p><strong>Customer:</strong> ${appointmentData.firstName} ${appointmentData.lastName}</p>
+                <p><strong>Phone:</strong> ${appointmentData.phone}</p>
+                <p><strong>Email:</strong> ${appointmentData.email}</p>
+                <p><strong>Date:</strong> ${appointmentData.date}</p>
+                <p><strong>Time:</strong> ${appointmentData.time || "N/A"}</p>
+                <p><strong>Order ID:</strong> ${orderDoc._id}</p>
+                <p><strong>Total:</strong> AU$${(orderDoc.total || 0).toFixed(2)}</p>
+                <br/>
+                <p>Check Admin Dashboard for full details.</p>
+            `;
+            await sendMail(contactInfo.email, "New Order & Appointment Received", adminHTML);
+            console.log("Admin Email sent successfully");
+          }
+
         } catch (emailErr) {
           console.error("FAILED TO SEND EMAIL:", emailErr.message);
         }

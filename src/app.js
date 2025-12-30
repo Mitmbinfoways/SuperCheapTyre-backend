@@ -30,8 +30,8 @@ app.use(
   })
 );
 app.use("/api/v1/webhook", express.raw({ type: "application/json" }), WebhookRoute);
-app.use(express.json({ limit: "1mb" }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(express.static(path.join(__dirname, "..", "public")));
 app.use(actionLogger);
 
