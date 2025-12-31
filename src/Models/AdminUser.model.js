@@ -34,6 +34,23 @@ const adminSchema = new mongoose.Schema(
     resetPasswordExpires: {
       type: Date,
     },
+    twoFactorEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    twoFactorSecret: {
+      type: String,
+      select: false,
+    },
+    twoFactorBackupCodes: {
+      type: [String],
+      select: false,
+    },
+    twoFactorCounter: {
+      type: Number,
+      default: 0,
+      select: false,
+    },
   },
   {
     timestamps: true,
@@ -42,6 +59,9 @@ const adminSchema = new mongoose.Schema(
         delete ret.password;
         delete ret.resetPasswordToken;
         delete ret.resetPasswordExpires;
+        delete ret.twoFactorSecret;
+        delete ret.twoFactorBackupCodes;
+        delete ret.twoFactorCounter;
         return ret;
       },
     },

@@ -8,7 +8,12 @@ const {
   ForgotPassword,
   UpdateProfile,
   GetAdminById,
+  Setup2FA,
+  Verify2FASetup,
+  Verify2FALogin,
+  Disable2FA,
 } = require("../Controllers/Admin.controller");
+const VerifyAdmin = require("../Middlewares/Auth.middleware");
 const AdminRoute = express.Router();
 
 const storage = multer.diskStorage({
@@ -28,7 +33,13 @@ AdminRoute.post("/regiester", upload.single("avatar"), RegiesterAdmin);
 AdminRoute.post("/login", AdminLogin);
 AdminRoute.post("/request-reset", RequestReset);
 AdminRoute.post("/forgot-password", ForgotPassword);
-AdminRoute.patch("/update",upload.single("avatar"), UpdateProfile);
+AdminRoute.patch("/update", upload.single("avatar"), UpdateProfile);
 AdminRoute.get("/:id", GetAdminById);
+
+// 2FA Routes
+AdminRoute.post("/2fa/setup", VerifyAdmin, Setup2FA);
+AdminRoute.post("/2fa/verify-setup", VerifyAdmin, Verify2FASetup);
+AdminRoute.post("/2fa/verify-login", Verify2FALogin);
+AdminRoute.post("/2fa/disable", VerifyAdmin, Disable2FA);
 
 module.exports = AdminRoute;
