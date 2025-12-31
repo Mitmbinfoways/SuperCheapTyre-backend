@@ -12,6 +12,8 @@ const {
   Verify2FASetup,
   Verify2FALogin,
   Disable2FA,
+  Forgot2FA,
+  Disable2FAWithToken,
 } = require("../Controllers/Admin.controller");
 const VerifyAdmin = require("../Middlewares/Auth.middleware");
 const AdminRoute = express.Router();
@@ -41,5 +43,7 @@ AdminRoute.post("/2fa/setup", VerifyAdmin, Setup2FA);
 AdminRoute.post("/2fa/verify-setup", VerifyAdmin, Verify2FASetup);
 AdminRoute.post("/2fa/verify-login", Verify2FALogin);
 AdminRoute.post("/2fa/disable", VerifyAdmin, Disable2FA);
+AdminRoute.post("/2fa/forgot", Forgot2FA);
+AdminRoute.get("/2fa/disable-with-token/:token", Disable2FAWithToken);
 
 module.exports = AdminRoute;

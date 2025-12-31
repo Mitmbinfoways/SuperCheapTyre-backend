@@ -458,6 +458,78 @@ const Disable2FA = async (req, res) => {
   }
 };
 
+const Forgot2FA = async (req, res) => {
+  try {
+    const { tempToken } = req.body;
+
+    if (!tempToken) return res.status(400).json(new ApiError(400, "Session token required"));
+
+    let decoded;
+    try {
+      decoded = jwt.verify(tempToken, JWT_SECRET);
+      if (decoded.role !== "admin_partial_auth") throw new Error("Invalid token type");
+    } catch (e) {
+      return res.status(401).json(new ApiError(401, "Invalid or expired session"));
+    }
+
+    const admin = await AdminModel.findById(decoded.id);
+    if (!admin) return res.status(404).json(new ApiError(404, "Admin not found"));
+
+    const disableToken = jwt.sign({ id: admin._id, type: "disable_2fa" }, JWT_SECRET, {
+      expiresIn: "5m",
+    });
+
+    const disableLink = `${req.protocol}://${req.get("host")}/api/v1/admin/2fa/disable-with-token/${disableToken}`;
+
+    const htmlContent = `
+      <h2>2FA Reset Request</h2>
+      <p>Admin (${admin.email}) has requested to disable.</p>
+      <p>Click the link below to DISABLE 2FA </p>
+      <a href="${disableLink}" target="_blank">${disableLink}</a>
+    `;
+
+    // Send to SMTP_USER (System Admin) as requested
+    await sendMail(process.env.SMTP_USER, "2FA Reset Request", htmlContent);
+
+    return res.status(200).json(new ApiResponse(200, null, "Reset request sent to administrator"));
+
+  } catch (error) {
+    console.error("Forgot2FA Error:", error);
+    return res.status(500).json(new ApiError(500, "Internal Server Error"));
+  }
+};
+
+const Disable2FAWithToken = async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    if (!token) return res.status(400).send("Token required");
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+      if (decoded.type !== "disable_2fa") return res.status(400).send("Invalid token type");
+    } catch (e) {
+      return res.status(400).send("Invalid or expired token");
+    }
+
+    const admin = await AdminModel.findById(decoded.id);
+    if (!admin) return res.status(404).send("Admin not found");
+
+    admin.twoFactorEnabled = false;
+    admin.twoFactorSecret = undefined;
+    admin.twoFactorBackupCodes = undefined;
+    admin.twoFactorCounter = undefined;
+    await admin.save();
+
+    return res.status(200).send("<h2>2FA has been disabled successfully for " + admin.email + "</h1>");
+
+  } catch (error) {
+    console.error("Disable2FAWithToken Error:", error);
+    return res.status(500).send("Internal Server Error");
+  }
+};
+
 module.exports = {
   RegiesterAdmin,
   AdminLogin,
@@ -469,4 +541,6 @@ module.exports = {
   Verify2FASetup,
   Verify2FALogin,
   Disable2FA,
+  Forgot2FA,
+  Disable2FAWithToken,
 };
