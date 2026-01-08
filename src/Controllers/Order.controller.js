@@ -441,35 +441,39 @@ const createOrder = async (req, res) => {
     //     .json(new ApiError(400, "Total cannot be less than subtotal"));
     // }
 
-    // Validate appointmentId
-    if (!appointmentId || !mongoose.isValidObjectId(appointmentId)) {
-      return res
-        .status(400)
-        .json(new ApiError(400, "Valid appointmentId is required"));
-    }
-
-    // Fetch appointment
-    const appointment = await Appointment.findById(appointmentId).lean();
-    if (!appointment) {
-      return res.status(404).json(new ApiError(404, "Appointment not found"));
-    }
-
+    // Validate appointmentId - Optional now
+    let appointment = null;
     let slotInfo = null;
-    if (appointment.slotId) {
-      const timeSlotDoc = await TimeSlot.findOne({
-        "generatedSlots.slotId": appointment.slotId,
-      }).lean();
 
-      if (timeSlotDoc) {
-        const matchedSlot = timeSlotDoc.generatedSlots.find(
-          (s) => s.slotId === appointment.slotId
-        );
-        if (matchedSlot) {
-          slotInfo = {
-            startTime: matchedSlot.startTime,
-            endTime: matchedSlot.endTime,
-            isBreak: matchedSlot.isBreak,
-          };
+    if (appointmentId) {
+      if (!mongoose.isValidObjectId(appointmentId)) {
+        return res
+          .status(400)
+          .json(new ApiError(400, "Valid appointmentId is required"));
+      }
+
+      // Fetch appointment
+      appointment = await Appointment.findById(appointmentId).lean();
+      if (!appointment) {
+        return res.status(404).json(new ApiError(404, "Appointment not found"));
+      }
+
+      if (appointment.slotId) {
+        const timeSlotDoc = await TimeSlot.findOne({
+          "generatedSlots.slotId": appointment.slotId,
+        }).lean();
+
+        if (timeSlotDoc) {
+          const matchedSlot = timeSlotDoc.generatedSlots.find(
+            (s) => s.slotId === appointment.slotId
+          );
+          if (matchedSlot) {
+            slotInfo = {
+              startTime: matchedSlot.startTime,
+              endTime: matchedSlot.endTime,
+              isBreak: matchedSlot.isBreak,
+            };
+          }
         }
       }
     }
@@ -592,7 +596,7 @@ const createOrder = async (req, res) => {
     const taxPercentage = taxDoc?.percentage ?? 10;
     const taxAmount = subtotal * (taxPercentage / 100);
 
-    const order = await Order.create({
+    const orderPayload = {
       items: enrichedItems,
       serviceItems: enrichedServiceItems,
       subtotal,
@@ -600,7 +604,13 @@ const createOrder = async (req, res) => {
       taxName: taxDoc.name,
       tax: taxPercentage,
       taxAmount,
-      appointment: {
+      customer: customerData,
+      payment: paymentData,
+      charges: charges || 0,
+    };
+
+    if (appointment) {
+      orderPayload.appointment = {
         id: appointment._id,
         firstName: appointment.firstname,
         lastName: appointment.lastname,
@@ -610,11 +620,22 @@ const createOrder = async (req, res) => {
         slotId: appointment.slotId,
         time: slotInfo ? `${slotInfo.startTime}-${slotInfo.endTime}` : "",
         timeSlotId: appointment.timeSlotId || "",
-      },
-      customer: customerData,
-      payment: paymentData,
-      charges: charges || 0,
-    });
+      };
+    } else {
+      orderPayload.appointment = {
+        id: null,
+        firstName: customerData.name.split(" ")[0] || "",
+        lastName: customerData.name.split(" ").slice(1).join(" ") || "",
+        phone: customerData.phone,
+        email: customerData.email,
+        date: null,
+        slotId: null,
+        time: "",
+        timeSlotId: null,
+      };
+    }
+
+    const order = await Order.create(orderPayload);
 
     (async () => {
       try {
@@ -622,7 +643,7 @@ const createOrder = async (req, res) => {
         const customerHTML = generateOrderConfirmationEmail(order, [], contactInfo);
 
         await sendMail(
-          appointment.email,
+          appointment ? appointment.email : customerData.email,
           "Order Confirmation - Your Appointment is Confirmed!",
           customerHTML
         );
@@ -1551,6 +1572,26 @@ const updateOrder = async (req, res) => {
     // Schema has 'payment' array.
 
     await order.save();
+
+    // Send Update Email
+    (async () => {
+      try {
+        const contactInfo = await ContactInfo.findOne().lean();
+        const customerHTML = generateOrderConfirmationEmail(order, [], contactInfo);
+
+        const recipientEmail = order.appointment?.email || order.customer?.email;
+
+        if (recipientEmail) {
+          await sendMail(
+            recipientEmail,
+            "Order - Supercheap Tyres",
+            customerHTML
+          );
+        }
+      } catch (emailError) {
+        console.error("Email Error during update:", emailError);
+      }
+    })();
 
     return res.status(200).json(
       new ApiResponse(
