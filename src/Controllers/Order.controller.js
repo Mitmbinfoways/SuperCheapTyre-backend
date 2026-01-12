@@ -265,13 +265,13 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
     } ${appointment.lastName || ""}</strong>,
                   </p>
                   <p style="font-size: 16px; color: #333333; margin: 0;">
-                    Thank you for your order! We've received it and are preparing for your appointment.
+                    Thank you for your order! We've received it.
                   </p>
                 </td>
               </tr>
 
               <!-- Appointment Details -->
-              ${appointment?.date || appointment?.time || "-"
+              ${appointment?.id
       ? `
               <tr>
                 <td style="padding: 0 30px 30px;">
@@ -864,6 +864,7 @@ Note: Wait time may vary according to workshop load.`,
 
     // ---------------- APPOINTMENT BOX ----------------
     if (
+      order.appointment?.id &&
       order.appointment.firstName &&
       order.appointment.lastName &&
       order.appointment.firstName.trim() !== "" &&
