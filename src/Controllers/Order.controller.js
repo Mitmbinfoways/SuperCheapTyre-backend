@@ -114,7 +114,15 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
     charges = 0,
   } = order;
 
-  const paymentInfo = Array.isArray(payment) ? payment[0] || {} : payment || {};
+  const totalPaid = Array.isArray(payment)
+    ? payment.reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+    : Number(payment?.amount || 0);
+
+  const lastPayment = Array.isArray(payment) && payment.length > 0
+    ? payment[payment.length - 1]
+    : payment || {};
+
+  const paymentMethod = lastPayment?.method || "";
 
   // Use backend URL for logo to avoid attachment delivery issues
   const backendUrl = process.env.BACKEND_APP_URL || "https://api.supercheaptyres.com.au";
@@ -188,15 +196,16 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
     })
     .join("");
 
-  const formattedSubtotal = Number(subtotal + order.charges).toFixed(2);
+  const formattedSubtotal = Number(subtotal + (order.charges || 0)).toFixed(2);
   const formattedTotal = Number(total).toFixed(2);
   const taxAmountVal = Number(order.taxAmount || 0);
   const taxAmount = taxAmountVal.toFixed(2);
   const tax = order.tax;
   const taxName = order.taxName || "Tax";
-  const paidAmount = Number(paymentInfo.amount || 0);
-  const unpaidAmount = (Number(subtotal) + Number(order.charges || 0) - paidAmount).toFixed(2);
 
+  const finalTotal = Number(subtotal) + Number(order.charges || 0);
+  const unpaidAmount = Math.max(0, finalTotal - totalPaid).toFixed(2);
+  const isPaidFull = totalPaid >= finalTotal - 0.05;
 
   // Format date properly
   const formatDate = (dateStr) => {
@@ -312,17 +321,17 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
                <tr>
                 <td style="padding: 0 30px 30px;">
                   <div style="
-                    background-color: ${paymentInfo.status === "full" ? "#e8f5e9" : "#fff3e0"
+                    background-color: ${isPaidFull ? "#e8f5e9" : "#fff3e0"
     };
                     padding: 15px;
                     border-radius: 4px;
-                    border-left: 4px solid ${paymentInfo.status === "full" ? "#4CAF50" : "#FF9800"
+                    border-left: 4px solid ${isPaidFull ? "#4CAF50" : "#FF9800"
     };
                   ">
                     <p style="margin: 0; color: #333; font-size: 14px;">
-                      <strong>Payment Status:</strong> ${paymentInfo.status === "full" ? "FULL PAID" : "PARTIAL PAID"}
+                      <strong>Payment Status:</strong> ${isPaidFull ? "FULL PAID" : "PARTIAL PAID"}
                     </p>
-                    ${paymentInfo.method ? `<p style="margin: 5px 0 0; color: #333; font-size: 14px;"><strong>Method:</strong> ${paymentInfo.method === "card" ? "Credit Card/Debit Card" : paymentInfo.method.toUpperCase()}</p>` : ""}
+                    ${paymentMethod ? `<p style="margin: 5px 0 0; color: #333; font-size: 14px;"><strong>Method:</strong> ${paymentMethod === "card" ? "Credit Card/Debit Card" : paymentMethod.toUpperCase()}</p>` : ""}
                   </div>
                 </td>
               </tr>
@@ -349,7 +358,7 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
 
       <tr>
         <td style="text-align: right; color: #666;"><strong>Paid Amount:</strong></td>
-        <td style="text-align: right; color: #4CAF50; font-weight: bold;">AU$${paidAmount.toFixed(2)}</td>
+        <td style="text-align: right; color: #4CAF50; font-weight: bold;">AU$${totalPaid.toFixed(2)}</td>
       </tr>
 
       <tr>
@@ -637,6 +646,11 @@ const createOrder = async (req, res) => {
 
     const order = await Order.create(orderPayload);
 
+    const emailSubject =
+      !appointment || !appointment.lastName
+        ? "Order Confirmation"
+        : "Order Confirmation - Your Appointment is Confirmed!";
+
     (async () => {
       try {
         const contactInfo = await ContactInfo.findOne().lean();
@@ -644,7 +658,7 @@ const createOrder = async (req, res) => {
 
         await sendMail(
           appointment ? appointment.email : customerData.email,
-          "Order Confirmation - Your Appointment is Confirmed!",
+          emailSubject,
           customerHTML
         );
       } catch (emailError) {
@@ -1573,6 +1587,8 @@ const updateOrder = async (req, res) => {
 
     await order.save();
 
+    console.log("Order updated successfully:", order);
+
     // Send Update Email
     (async () => {
       try {
@@ -1581,10 +1597,15 @@ const updateOrder = async (req, res) => {
 
         const recipientEmail = order.appointment?.email || order.customer?.email;
 
+        const emailSubject =
+          order.status === "full"
+            ? "Thank you for your purchase at Supercheap Tyres. We appreciate your business and look forward to serving you again."
+            : "Order - Supercheap Tyres";
+
         if (recipientEmail) {
           await sendMail(
             recipientEmail,
-            "Order - Supercheap Tyres",
+            emailSubject,
             customerHTML
           );
         }
