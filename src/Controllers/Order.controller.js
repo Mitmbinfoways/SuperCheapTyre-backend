@@ -502,16 +502,9 @@ const createOrder = async (req, res) => {
     const validPaymentMethods = ["card", "cash", "online", "eftpos", "afterpay"];
     const validPaymentStatuses = ["partial", "full", "failed"];
 
-    let paymentStatus =
-      payment?.status && validPaymentStatuses.includes(payment.status)
-        ? payment.status
-        : "partial";
-
     const paymentAmount = typeof payment?.amount === "number" ? payment.amount : 0;
 
-    if (paymentAmount >= Number(subtotal)) {
-      paymentStatus = "full";
-    }
+    let paymentStatus = paymentAmount >= Number(subtotal) ? "full" : "partial";
 
     const paymentData = {
       amount: paymentAmount,
@@ -523,6 +516,8 @@ const createOrder = async (req, res) => {
       transactionId: payment?.transactionId || null,
       currency: payment?.currency || "AU$",
     };
+
+    console.log(paymentData)
 
     const productIds = items.map((item) => item.id);
     const products = await Product.find({
