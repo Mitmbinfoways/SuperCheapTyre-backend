@@ -30,7 +30,6 @@ const getLogoPath = () => {
   return null;
 };
 
-// Copy of generateOrderConfirmationEmail from Order.controller.js because it wasn't exported
 const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = {}) => {
   if (!order) return "";
   const {
@@ -137,7 +136,7 @@ const generateOrderConfirmationEmail = (order, productsData = [], contactInfo = 
   const dateStr = dateObj.toISOString().slice(0, 10).replace(/-/g, "");
   const idSuffix = order._id?.toString()?.slice(-6)?.toUpperCase() || "000000";
   const invoiceNum = `INV-${dateStr}-${idSuffix}`;
-  const invoiceDate = dayjs(dateObj).format("MMM D, YYYY");
+  const invoiceDate = dayjs(dateObj.toLocaleString("en-US", { timeZone: "Australia/Melbourne" })).format("MMM D, YYYY");
 
   return `
     <!DOCTYPE html>
