@@ -91,7 +91,13 @@ const getAllProducts = async (req, res) => {
     }
 
     if (search) {
-      const searchRegex = { $regex: search, $options: "i" };
+      const cleanedSearch = search.replace(/[^a-zA-Z0-9]/g, "");
+      const searchPattern =
+        cleanedSearch.length > 0
+          ? cleanedSearch.split("").join("[\\s\\W]*")
+          : search;
+
+      const searchRegex = { $regex: searchPattern, $options: "i" };
       filter.$or = [
         { name: searchRegex },
         { sku: searchRegex },
